@@ -973,40 +973,39 @@ elif page == "📦 Product Drill Down":
             )
             st.plotly_chart(fig_cp, use_container_width=True)
 
-        # 2. Plan breakdown (horizontal grouped bar, Plans on y-axis, Paid/Outstanding, Country via color)
-        with c2:
-            plan_data = pdf.groupby(["Plan", "Country"]).agg(
-                Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"),
-            ).reset_index()
-            plan_data = convert_cols(plan_data, ["Paid", "Outstanding"], cur)
-            if not plan_data.empty:
-                fig_plan = go.Figure()
-                for country in plan_data["Country"].unique():
-                    cdata = plan_data[plan_data["Country"] == country]
-                    fig_plan.add_trace(go.Bar(
-                        y=cdata["Plan"], x=cdata["Paid"], name=f"Paid — {country}",
-                        orientation="h", marker_color=PAID_COLOR,
-                        text=[fmt(v, cur) for v in cdata["Paid"]],
-                        textposition="outside", textfont=dict(size=10),
-                        hovertemplate=f"<b>%{{y}} — {country}</b><br>Paid: %{{x}}<extra></extra>",
-                    ))
-                    fig_plan.add_trace(go.Bar(
-                        y=cdata["Plan"], x=cdata["Outstanding"], name=f"Pending — {country}",
-                        orientation="h", marker_color=OUTSTANDING_COLOR,
-                        text=[fmt(v, cur) for v in cdata["Outstanding"]],
-                        textposition="outside", textfont=dict(size=10),
-                        hovertemplate=f"<b>%{{y}} — {country}</b><br>Pending: %{{x}}<extra></extra>",
-                    ))
-                _base_layout(fig_plan, max(300, len(plan_data["Plan"].unique()) * 100))
-                fig_plan.update_layout(
-                    title=f"Plan Breakdown — {prod_sel} ({cur})",
-                    barmode="group",
-                    xaxis=dict(gridcolor=GRID_COLOR),
-                    legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),
-                )
-                st.plotly_chart(fig_plan, use_container_width=True)
-            else:
-                st.info("No plan data available.")
+        # 2. Plan breakdown — skip for EV (single plan)
+        if prod_sel != "EV / Auto":
+            with c2:
+                plan_data = pdf.groupby(["Plan", "Country"]).agg(
+                    Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"),
+                ).reset_index()
+                plan_data = convert_cols(plan_data, ["Paid", "Outstanding"], cur)
+                if not plan_data.empty:
+                    fig_plan = go.Figure()
+                    for country in plan_data["Country"].unique():
+                        cdata = plan_data[plan_data["Country"] == country]
+                        fig_plan.add_trace(go.Bar(
+                            y=cdata["Plan"], x=cdata["Paid"], name=f"Paid — {country}",
+                            orientation="h", marker_color=PAID_COLOR,
+                            text=[fmt(v, cur) for v in cdata["Paid"]],
+                            textposition="outside", textfont=dict(size=10),
+                            hovertemplate=f"<b>%{{y}} — {country}</b><br>Paid: %{{x}}<extra></extra>",
+                        ))
+                        fig_plan.add_trace(go.Bar(
+                            y=cdata["Plan"], x=cdata["Outstanding"], name=f"Pending — {country}",
+                            orientation="h", marker_color=OUTSTANDING_COLOR,
+                            text=[fmt(v, cur) for v in cdata["Outstanding"]],
+                            textposition="outside", textfont=dict(size=10),
+                            hovertemplate=f"<b>%{{y}} — {country}</b><br>Pending: %{{x}}<extra></extra>",
+                        ))
+                    _base_layout(fig_plan, max(300, len(plan_data["Plan"].unique()) * 100))
+                    fig_plan.update_layout(
+                        title=f"Plan Breakdown — {prod_sel} ({cur})",
+                        barmode="group",
+                        xaxis=dict(gridcolor=GRID_COLOR),
+                        legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),
+                    )
+                    st.plotly_chart(fig_plan, use_container_width=True)
 
         # 3. Top Clients (horizontal bar)
         st.markdown("---")
