@@ -585,11 +585,8 @@ def _safe_text(series, currency):
     return series.apply(lambda v: fmt(v, currency) if pd.notna(v) and not (isinstance(v, float) and np.isinf(v)) else "—")
 
 def premium_chart(agg, group_col, title, currency, height=420):
-    """Stacked bar chart: Paid + Outstanding stacked, Target as a line cutting through.
-    Shows totals on top and target achievement %.
-    """
+    """Stacked bar chart: Paid + Outstanding stacked with total annotations."""
     title = str(title) if title else ""
-    # Clean data - drop NaN rows
     agg = agg.dropna(subset=[group_col]).copy()
     if agg.empty:
         fig = go.Figure()
@@ -598,11 +595,8 @@ def premium_chart(agg, group_col, title, currency, height=420):
 
     agg["Paid"] = agg["Paid"].fillna(0)
     agg["Outstanding"] = agg["Outstanding"].fillna(0)
-    agg["Target"] = agg["Target"].fillna(0)
 
     totals = agg["Paid"] + agg["Outstanding"]
-    target_safe = agg["Target"].replace(0, np.nan)
-    achievement = ((agg["Paid"] + agg["Outstanding"]) / target_safe * 100).fillna(0)
 
     fig = go.Figure()
     fig.add_trace(go.Bar(
@@ -617,22 +611,13 @@ def premium_chart(agg, group_col, title, currency, height=420):
         text=_safe_text(agg["Outstanding"], currency),
         textposition="inside", textfont=dict(size=11, color="white"),
     ))
-    fig.add_trace(go.Scatter(
-        x=agg[group_col], y=agg["Target"], name="Target",
-        mode="lines+markers+text",
-        line=dict(color=TARGET_COLOR, width=2, dash="dot"),
-        marker=dict(size=8, color=TARGET_COLOR, line=dict(width=1, color="white")),
-        text=_safe_text(agg["Target"], currency), textposition="top center",
-        textfont=dict(size=11, color=TARGET_COLOR),
-    ))
-    for x_val, total, ach in zip(agg[group_col], totals, achievement):
+    for x_val, total in zip(agg[group_col], totals):
         if pd.isna(x_val) or pd.isna(total):
             continue
-        hit = "✅" if ach >= 100 else "⚠️" if ach >= 80 else "❌"
         fig.add_annotation(
             x=x_val, y=total,
-            text=f"<b>{fmt(convert(total, currency), currency)}</b><br>{hit} {ach:.0f}%",
-            showarrow=False, yshift=25,
+            text=f"<b>{fmt(convert(total, currency), currency)}</b>",
+            showarrow=False, yshift=20,
             font=dict(size=12, color="#37474F"),
             align="center",
         )
@@ -679,16 +664,6 @@ def premium_chart_compare(merged, group_col, title, currency, cmp_label="", heig
         marker_color="rgba(206, 147, 216, 0.35)", marker_line=dict(width=1, color=OUTSTANDING_COLOR),
         text=_safe_text(merged["Outstanding_cmp"], currency),
         textposition="inside", textfont=dict(size=10, color="#37474F"),
-    ))
-    fig.add_trace(go.Scatter(
-        x=merged[group_col], y=merged["Target"], name="Target (Current)",
-        line=dict(color=TARGET_COLOR, width=2, dash="dot"),
-        mode="lines+markers", marker=dict(size=8, color=TARGET_COLOR),
-    ))
-    fig.add_trace(go.Scatter(
-        x=merged[group_col], y=merged["Target_cmp"], name=f"Target ({cmp_label})",
-        line=dict(color="rgba(244, 143, 177, 0.5)", width=1.5, dash="dot"),
-        mode="lines+markers", marker=dict(size=6, color="rgba(244, 143, 177, 0.5)"),
     ))
     _base_layout(fig, height)
     fig.update_layout(barmode="group", margin=dict(t=50))
@@ -781,12 +756,6 @@ if page == "🌍 Executive Summary":
             marker_color=PAID_COLOR,
             hovertemplate="%{x}<br>Revenue: %{y:,.2f}<extra></extra>",
         ))
-        fig_m.add_trace(go.Scatter(
-            x=monthly_agg["YearMonth"], y=monthly_agg["Target"], name="Target",
-            line=dict(color=TARGET_COLOR, width=2.5, dash="dot"),
-            mode="lines+markers", marker=dict(size=6, color=TARGET_COLOR),
-            hovertemplate="%{x}<br>Target: %{y:,.2f}<extra></extra>",
-        ))
         _base_layout(fig_m, 400)
         fig_m.update_layout(title=f"Monthly Revenue ({cur})", xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45))
         st.plotly_chart(fig_m, use_container_width=True)
@@ -823,15 +792,6 @@ if page == "🌍 Executive Summary":
                 ),
                 customdata=pp[["Contracts"]].values,
             ))
-        # Target line (total across all products)
-        target_m = df_filtered.groupby("YearMonth")["Target"].sum().reset_index().sort_values("YearMonth")
-        target_m["Target"] = target_m["Target"].apply(lambda v: convert(v, cur))
-        fig_mp.add_trace(go.Scatter(
-            x=target_m["YearMonth"], y=target_m["Target"], name="Target",
-            line=dict(color=TARGET_COLOR, width=2.5, dash="dot"),
-            mode="lines+markers", marker=dict(size=6, color=TARGET_COLOR, line=dict(width=1, color="white")),
-            hovertemplate="Month: %{x}<br>Target: %{y:,.2f}<extra></extra>",
-        ))
         _base_layout(fig_mp, 400)
         fig_mp.update_layout(
             title=f"Monthly Revenue by Product ({cur})",
