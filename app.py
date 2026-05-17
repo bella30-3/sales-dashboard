@@ -29,8 +29,32 @@ PRODUCTS = {
         "desc": "Contracts & Premiums",
         "plans": {
             "India": ["Individual", "Family", "Corporate"],
-            "Singapore": ["Essential", "Comprehensive", "Elite"],
+            "Singapore": ["DBS Staff 2000", "DBS Staff 5000", "OCBC GA Mandatory 3M A", "OCBC GA Mandatory 3M B", "OCBC GA Mandatory 3M C", "OCBC GA Mandatory 3M 5", "OCBC GA 12M A", "OCBC GA 12M B", "OCBC GA 12M C", "OCBC GA 12M 5"],
             "Thailand": ["Basic", "Advanced", "Premium"],
+        },
+        "premiums": {
+            "DBS Staff 2000": 200,
+            "DBS Staff 5000": 400,
+            "OCBC GA Mandatory 3M A": 75,
+            "OCBC GA Mandatory 3M B": 100,
+            "OCBC GA Mandatory 3M C": 150,
+            "OCBC GA Mandatory 3M 5": 150,
+            "OCBC GA 12M A": 500,
+            "OCBC GA 12M B": 1000,
+            "OCBC GA 12M C": 1500,
+            "OCBC GA 12M 5": 1500,
+        },
+        "types": {
+            "DBS Staff 2000": "Individual",
+            "DBS Staff 5000": "Individual",
+            "OCBC GA Mandatory 3M A": "Corporate",
+            "OCBC GA Mandatory 3M B": "Corporate",
+            "OCBC GA Mandatory 3M C": "Corporate",
+            "OCBC GA Mandatory 3M 5": "Corporate",
+            "OCBC GA 12M A": "Corporate",
+            "OCBC GA 12M B": "Corporate",
+            "OCBC GA 12M C": "Corporate",
+            "OCBC GA 12M 5": "Corporate",
         },
     },
     "Care Aqua": {
@@ -77,6 +101,18 @@ TYPES = ["Individual", "Corporate"]
 TRAN_TYPES = ["Inst", "Single"]
 
 
+def get_plan_premium(prod, plan):
+    """Get the actual premium for a plan if defined."""
+    premiums = PRODUCTS.get(prod, {}).get("premiums", {})
+    return premiums.get(plan)
+
+
+def get_plan_type(prod, plan):
+    """Get the type (Individual/Corporate) for a plan if defined."""
+    types = PRODUCTS.get(prod, {}).get("types", {})
+    return types.get(plan)
+
+
 def get_client(product, country):
     """Pick a random client for the given product+country."""
     clients = CLIENTS_BY_PRODUCT_COUNTRY.get(product, {}).get(country, [])
@@ -99,10 +135,16 @@ def generate_data(n=800):
             country = random.choice([c for c in COUNTRIES.keys() if c != "Europe"])
         region = COUNTRIES[country]
         plan = random.choice(PRODUCTS[prod]["plans"].get(country, PRODUCTS[prod]["plans"][list(PRODUCTS[prod]["plans"].keys())[0]]))
-        ctype = random.choice(TYPES)
+        annual_premium = get_plan_premium(prod, plan)
+        if annual_premium is None:
+            annual_premium = random.randint(500, 25000)
+        plan_type = get_plan_type(prod, plan)
+        if plan_type:
+            ctype = plan_type
+        else:
+            ctype = random.choice(TYPES)
         client = get_client(prod, country)
         trantype = random.choice(TRAN_TYPES)
-        annual_premium = random.randint(500, 25000)
         paid = random.randint(0, annual_premium)
         outstanding = annual_premium - paid
         inst_count = random.randint(1, 12) if trantype == "Inst" else 1
