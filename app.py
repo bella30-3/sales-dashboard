@@ -528,29 +528,47 @@ def _base_layout(fig, height=420):
     )
     return fig
 
+def empty_state(title="No data available"):
+    """Return a blank figure with a friendly message for empty DataFrames."""
+    fig = go.Figure()
+    fig.update_layout(
+        title=title,
+        height=300,
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        annotations=[dict(
+            text="No data for selected filters",
+            xref="paper", yref="paper", x=0.5, y=0.5,
+            showarrow=False, font=dict(size=16, color="#90A4AE"),
+        )],
+    )
+    return fig
+
+def _fmt_val(v):
+    """Format a numeric value in k/M, handling NaN/inf."""
+    if pd.isna(v) or (isinstance(v, float) and np.isinf(v)):
+        return "—"
+    if abs(v) >= 1_000_000:
+        return f"{v/1_000_000:.2f}M"
+    elif abs(v) >= 1_000:
+        return f"{v/1_000:.2f}k"
+    else:
+        return f"{v:,.0f}"
+
 def bar_chart(data, x, y, title, color=None, barmode="group", height=420):
     title = str(title) if title else ""
-    # Drop NaN in the x-axis column
     data = data.dropna(subset=[x]).copy()
     data[y] = data[y].fillna(0)
     if data.empty:
-        fig = go.Figure()
-        fig.update_layout(title=title or None)
-        return fig
+        return empty_state(title)
     fig = px.bar(data, x=x, y=y, color=color, title=title, barmode=barmode,
                  color_discrete_sequence=PALETTE)
-    # Format text labels in k/M
-    def _fmt_val(v):
-        if pd.isna(v):
-            return "—"
-        if abs(v) >= 1_000_000:
-            return f"{v/1_000_000:.2f}M"
-        elif abs(v) >= 1_000:
-            return f"{v/1_000:.2f}k"
-        else:
-            return f"{v:,.0f}"
-    fig.update_traces(text=data[y].apply(_fmt_val),
-                      textposition="outside", textfont_size=13)
+    # Per-trace annotations instead of text= (avoids NaN → "undefined")
+    fig.update_traces(textposition="outside", textfont_size=13)
+    for trace in fig.data:
+        trace.text = [_fmt_val(v) for v in trace.y]
     _base_layout(fig, height)
     return fig
 
@@ -589,9 +607,7 @@ def premium_chart(agg, group_col, title, currency, height=420):
     title = str(title) if title else ""
     agg = agg.dropna(subset=[group_col]).copy()
     if agg.empty:
-        fig = go.Figure()
-        fig.update_layout(title=title or None)
-        return fig
+        return empty_state(title)
 
     agg["Paid"] = agg["Paid"].fillna(0)
     agg["Outstanding"] = agg["Outstanding"].fillna(0)
@@ -602,13 +618,13 @@ def premium_chart(agg, group_col, title, currency, height=420):
     fig.add_trace(go.Bar(
         x=agg[group_col], y=agg["Paid"], name="Paid",
         marker_color=PAID_COLOR, marker_line=dict(width=0),
-        text=_safe_text(agg["Paid"], currency),
+        text=[fmt(v, currency) for v in agg["Paid"]],
         textposition="inside", textfont=dict(size=11, color="white"),
     ))
     fig.add_trace(go.Bar(
         x=agg[group_col], y=agg["Outstanding"], name="Outstanding",
         marker_color=OUTSTANDING_COLOR, marker_line=dict(width=0),
-        text=_safe_text(agg["Outstanding"], currency),
+        text=[fmt(v, currency) for v in agg["Outstanding"]],
         textposition="inside", textfont=dict(size=11, color="white"),
     ))
     for x_val, total in zip(agg[group_col], totals):
@@ -616,7 +632,7 @@ def premium_chart(agg, group_col, title, currency, height=420):
             continue
         fig.add_annotation(
             x=x_val, y=total,
-            text=f"<b>{fmt(convert(total, currency), currency)}</b>",
+            text=f"<b>{fmt(total, currency)}</b>",
             showarrow=False, yshift=20,
             font=dict(size=12, color="#37474F"),
             align="center",
@@ -631,12 +647,9 @@ def premium_chart_compare(merged, group_col, title, currency, cmp_label="", heig
     cmp_label = str(cmp_label) if cmp_label else "Comparison"
     merged = merged.dropna(subset=[group_col]).copy()
     if merged.empty:
-        fig = go.Figure()
-        fig.update_layout(title=title or None)
-        return fig
+        return empty_state(title)
 
-    # Fill NaN in numeric columns
-    for c in ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"]:
+    for c in ["Paid", "Outstanding", "Paid_cmp", "Outstanding_cmp"]:
         if c in merged.columns:
             merged[c] = merged[c].fillna(0)
 
@@ -644,25 +657,25 @@ def premium_chart_compare(merged, group_col, title, currency, cmp_label="", heig
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Paid"], name="Paid (Current)",
         marker_color=PAID_COLOR, marker_line=dict(width=0),
-        text=_safe_text(merged["Paid"], currency),
+        text=[fmt(v, currency) for v in merged["Paid"]],
         textposition="inside", textfont=dict(size=10, color="white"),
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Outstanding"], name="Outstanding (Current)",
         marker_color=OUTSTANDING_COLOR, marker_line=dict(width=0),
-        text=_safe_text(merged["Outstanding"], currency),
+        text=[fmt(v, currency) for v in merged["Outstanding"]],
         textposition="inside", textfont=dict(size=10, color="white"),
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Paid_cmp"], name=f"Paid ({cmp_label})",
         marker_color="rgba(79, 195, 247, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
-        text=_safe_text(merged["Paid_cmp"], currency),
+        text=[fmt(v, currency) for v in merged["Paid_cmp"]],
         textposition="inside", textfont=dict(size=10, color="#37474F"),
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Outstanding_cmp"], name=f"Outstanding ({cmp_label})",
         marker_color="rgba(206, 147, 216, 0.35)", marker_line=dict(width=1, color=OUTSTANDING_COLOR),
-        text=_safe_text(merged["Outstanding_cmp"], currency),
+        text=[fmt(v, currency) for v in merged["Outstanding_cmp"]],
         textposition="inside", textfont=dict(size=10, color="#37474F"),
     ))
     _base_layout(fig, height)
@@ -675,19 +688,20 @@ def bar_chart_compare(merged, group_col, y_curr, y_cmp, title, currency, cmp_lab
     cmp_label = str(cmp_label) if cmp_label else "Comparison"
     merged = merged.dropna(subset=[group_col]).copy()
     if merged.empty:
-        return go.Figure()
+        return empty_state(title)
     merged[y_curr] = merged[y_curr].fillna(0)
     merged[y_cmp] = merged[y_cmp].fillna(0)
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged[y_curr], name="Current",
-        marker_color=PAID_COLOR, text=_safe_text(merged[y_curr], currency),
+        marker_color=PAID_COLOR,
+        text=[fmt(v, currency) for v in merged[y_curr]],
         textposition="outside", textfont=dict(size=11),
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged[y_cmp], name=cmp_label,
         marker_color="rgba(79, 195, 247, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
-        text=_safe_text(merged[y_cmp], currency),
+        text=[fmt(v, currency) for v in merged[y_cmp]],
         textposition="outside", textfont=dict(size=11),
     ))
     _base_layout(fig, height)

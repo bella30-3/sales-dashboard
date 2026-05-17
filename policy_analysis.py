@@ -219,14 +219,43 @@ st.sidebar.caption(f"IPI Policies: **{len(ipi_df):,}**")
 # ─────────────────────────────────────────────
 # HELPER
 # ─────────────────────────────────────────────
-def bar(data, x, y, title, color=None, barmode="group", text_auto=True):
+def _fmt_val(v):
+    """Format a numeric value in k/M, handling NaN."""
+    import math
+    if v is None or (isinstance(v, float) and (math.isnan(v) or math.isinf(v))):
+        return "—"
+    if abs(v) >= 1_000_000:
+        return f"{v/1_000_000:.2f}M"
+    elif abs(v) >= 1_000:
+        return f"{v/1_000:.2f}k"
+    else:
+        return f"{v:,.0f}"
+
+def _empty_state(title="No data available"):
+    """Return a blank figure with a friendly message."""
+    fig = go.Figure()
+    fig.update_layout(
+        title=title, height=300,
+        xaxis=dict(visible=False), yaxis=dict(visible=False),
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+        annotations=[dict(
+            text="No data for selected filters",
+            xref="paper", yref="paper", x=0.5, y=0.5,
+            showarrow=False, font=dict(size=16, color="#90A4AE"),
+        )],
+    )
+    return fig
+
+def bar(data, x, y, title, color=None, barmode="group"):
     data = data.dropna(subset=[x]).copy()
     data[y] = data[y].fillna(0)
+    if data.empty:
+        return _empty_state(title)
     fig = px.bar(data, x=x, y=y, color=color, title=title, barmode=barmode,
                  color_discrete_sequence=px.colors.qualitative.Set2)
-    # Add formatted text manually (avoids NaN → "undefined" from text_auto)
-    fig.update_traces(text=data[y].apply(lambda v: f"{v:,.0f}" if pd.notna(v) else "—"),
-                      textposition="outside")
+    for trace in fig.data:
+        trace.text = [_fmt_val(v) for v in trace.y]
+    fig.update_traces(textposition="outside")
     fig.update_layout(height=450, title_font_size=16, xaxis_title="", yaxis_title="",
                       legend_title="", plot_bgcolor="rgba(0,0,0,0)")
     return fig
