@@ -844,50 +844,31 @@ elif page == "🏳️ Country Drill Down":
     cdf = df_filtered[df_filtered["Country"].isin(countries_sel)]
     sel_label = ", ".join(countries_sel) if len(countries_sel) <= 3 else f"{len(countries_sel)} countries"
 
-    tab1, tab2 = st.tabs(["📊 All Products", "📋 Plan Level"])
+    cc_cmp = cmp_filtered[cmp_filtered["Country"].isin(countries_sel)] if cmp_filtered is not None else None
+    render_metrics(cdf, cc_cmp, cur, cmp_label)
+    st.markdown("---")
 
-    with tab1:
-        cc_cmp = cmp_filtered[cmp_filtered["Country"].isin(countries_sel)] if cmp_filtered is not None else None
-        render_metrics(cdf, cc_cmp, cur, cmp_label)
-        st.markdown("---")
-
-        c1, c2 = st.columns(2)
-        with c1:
-            cp = cdf.groupby("Product Label")["Contract ID"].count().reset_index()
-            cp.columns = ["Product", "Contracts"]
-            st.plotly_chart(bar_chart(cp, "Product", "Contracts", f"Contracts — {sel_label}"), use_container_width=True)
-        with c2:
-            if cc_cmp is not None and len(cc_cmp) > 0:
-                merged = make_compare_summary(cdf, cc_cmp, "Product Label")
-                merged.rename(columns={"Product Label": "Product"}, inplace=True)
-                merged = convert_cols(merged, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
-                st.plotly_chart(premium_chart_compare(merged, "Product", f"Premium — {sel_label} ({cur}) vs {cmp_label}", cur, cmp_label), use_container_width=True)
-            else:
-                agg = make_summary(cdf, "Product Label")
-                agg.rename(columns={"Product Label": "Product"}, inplace=True)
-                agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-                st.plotly_chart(premium_chart(agg, "Product", f"Premium — {sel_label} ({cur})", cur), use_container_width=True)
-
-        cl = cdf.groupby("Client").agg(Contracts=("Contract ID", "count"), Total_Premium=("Annual Premium", "sum")).reset_index()
-        cl = convert_cols(cl, ["Total_Premium"], cur)
-        cl = cl.sort_values("Total_Premium", ascending=False).head(15)
-        st.plotly_chart(bar_chart(cl, "Client", "Total_Premium", f"Top Clients — {sel_label} ({cur})"), use_container_width=True)
-
-    with tab2:
-        st.subheader(f"Plan Level — {sel_label}")
-        prod_for_plan = st.selectbox("Select Product", list(PRODUCTS.keys()), key="plan_prod")
-        pdf = cdf[cdf["Product"] == prod_for_plan]
-
-        if pdf.empty:
-            st.warning(f"No data for {prod_for_plan} in {sel_label}")
+    c1, c2 = st.columns(2)
+    with c1:
+        cp = cdf.groupby("Product Label")["Contract ID"].count().reset_index()
+        cp.columns = ["Product", "Contracts"]
+        st.plotly_chart(bar_chart(cp, "Product", "Contracts", f"Contracts — {sel_label}"), use_container_width=True)
+    with c2:
+        if cc_cmp is not None and len(cc_cmp) > 0:
+            merged = make_compare_summary(cdf, cc_cmp, "Product Label")
+            merged.rename(columns={"Product Label": "Product"}, inplace=True)
+            merged = convert_cols(merged, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
+            st.plotly_chart(premium_chart_compare(merged, "Product", f"Premium — {sel_label} ({cur}) vs {cmp_label}", cur, cmp_label), use_container_width=True)
         else:
-            pl = pdf.groupby("Plan")["Contract ID"].count().reset_index()
-            pl.columns = ["Plan", "Contracts"]
-            st.plotly_chart(bar_chart(pl, "Plan", "Contracts", f"Contracts by Plan — {prod_for_plan} ({sel_label})"), use_container_width=True)
-
-            agg = make_summary(pdf, "Plan")
+            agg = make_summary(cdf, "Product Label")
+            agg.rename(columns={"Product Label": "Product"}, inplace=True)
             agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-            st.plotly_chart(premium_chart(agg, "Plan", f"Premium by Plan — {prod_for_plan} ({cur})", cur), use_container_width=True)
+            st.plotly_chart(premium_chart(agg, "Product", f"Premium — {sel_label} ({cur})", cur), use_container_width=True)
+
+    cl = cdf.groupby("Client").agg(Contracts=("Contract ID", "count"), Total_Premium=("Annual Premium", "sum")).reset_index()
+    cl = convert_cols(cl, ["Total_Premium"], cur)
+    cl = cl.sort_values("Total_Premium", ascending=False).head(15)
+    st.plotly_chart(bar_chart(cl, "Client", "Total_Premium", f"Top Clients — {sel_label} ({cur})"), use_container_width=True)
 
 # ─────────────────────────────────────────────
 # PAGE 4: PRODUCT DRILL DOWN
