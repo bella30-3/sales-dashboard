@@ -17,36 +17,86 @@ EV_BRANDS = ["Mahindra", "BYD", "Porsche", "Subaru", "Hyundai", "Cycle & Carriag
 EV_COUNTRIES = ["India", "Singapore", "Thailand"]
 
 
-def generate_ev_policies(n=500):
+SGD_TO_USD = 1.35
+EV_MONTHLY_TARGET_USD = 15000 / SGD_TO_USD  # ~15k SGD/month
+IPI_MONTHLY_TARGET_USD = 20000 / SGD_TO_USD  # ~20k SGD/month
+
+def generate_ev_policies():
+    """Generate monthly EV policy data from Jan 2023 to today.
+    Target: ~15k SGD/month in premiums.
+    """
     rows = []
-    for i in range(n):
-        country = random.choice(EV_COUNTRIES)
-        brand = random.choice(EV_BRANDS)
-        health = random.choices(EV_HEALTH_STATES, weights=[60, 30, 10])[0]
-        age = random.randint(1, 15)  # vehicle age in years
-        km = random.randint(5000, 250000)
+    start_date = datetime(2023, 1, 1)
+    end_date = datetime.now()
+    current = start_date
 
-        # Adjust health based on age/km (realistic correlation)
-        if age > 10 or km > 150000:
-            health = random.choices(EV_HEALTH_STATES, weights=[20, 40, 40])[0]
-        elif age > 5 or km > 80000:
-            health = random.choices(EV_HEALTH_STATES, weights=[40, 40, 20])[0]
+    while current <= end_date:
+        year, month = current.year, current.month
+        # Seasonal variation
+        seasonal = 1.0
+        if month in (10, 11, 12):
+            seasonal = random.uniform(1.1, 1.3)
+        elif month in (1, 2):
+            seasonal = random.uniform(0.75, 0.9)
+        else:
+            seasonal = random.uniform(0.9, 1.1)
 
-        premium = random.randint(500, 15000)
-        claim_count = random.randint(0, 5) if health == "Poor" else random.randint(0, 3)
-        claim_amount = claim_count * random.randint(500, 5000)
+        years_elapsed = (current - datetime(2023, 1, 1)).days / 365.25
+        growth = (1.0 + 0.10) ** years_elapsed
+        anomaly = 1.0
+        if random.random() < 0.1:
+            anomaly = random.uniform(0.5, 0.75)
+        elif random.random() < 0.08:
+            anomaly = random.uniform(1.3, 1.5)
 
-        rows.append({
-            "Policy ID": f"EV-{random.randint(10000,99999)}",
-            "Country": country,
-            "Brand": brand,
-            "Health State": health,
-            "Vehicle Age (Years)": age,
-            "KM Driven": km,
-            "Annual Premium": premium,
-            "Claims": claim_count,
-            "Claim Amount": claim_amount,
-        })
+        monthly_budget = EV_MONTHLY_TARGET_USD * seasonal * growth * anomaly
+        n_policies = max(3, int(monthly_budget / 1000 * random.uniform(0.6, 1.4)))
+        weights = np.random.dirichlet(np.ones(n_policies) * 0.5)
+        premiums = weights * monthly_budget
+
+        days_in_month = 28 if month == 2 else (30 if month in (4, 6, 9, 11) else 31)
+
+        for i, premium in enumerate(premiums):
+            premium = max(200, round(premium))
+            country = random.choice(EV_COUNTRIES)
+            brand = random.choice(EV_BRANDS)
+            health = random.choices(EV_HEALTH_STATES, weights=[60, 30, 10])[0]
+            age = random.randint(1, 15)
+            km = random.randint(5000, 250000)
+
+            if age > 10 or km > 150000:
+                health = random.choices(EV_HEALTH_STATES, weights=[20, 40, 40])[0]
+            elif age > 5 or km > 80000:
+                health = random.choices(EV_HEALTH_STATES, weights=[40, 40, 20])[0]
+
+            claim_count = random.randint(0, 5) if health == "Poor" else random.randint(0, 3)
+            claim_amount = claim_count * random.randint(500, 5000)
+
+            start_day = random.randint(1, min(days_in_month, 28))
+            start = datetime(year, month, start_day)
+            end = start + timedelta(days=365)
+
+            rows.append({
+                "Policy ID": f"EV-{random.randint(10000,99999)}",
+                "Country": country,
+                "Brand": brand,
+                "Health State": health,
+                "Vehicle Age (Years)": age,
+                "KM Driven": km,
+                "Annual Premium": premium,
+                "Claims": claim_count,
+                "Claim Amount": claim_amount,
+                "Year": year, "Month": month,
+                "YearMonth": f"{year}-{month:02d}",
+                "Start Date": start.strftime("%Y-%m-%d"),
+                "End Date": end.strftime("%Y-%m-%d"),
+            })
+
+        if month == 12:
+            current = datetime(year + 1, 1, 1)
+        else:
+            current = datetime(year, month + 1, 1)
+
     return pd.DataFrame(rows)
 
 
@@ -67,36 +117,80 @@ IPI_PLANS = {
 }
 
 
-def generate_ipi_policies(n=600):
+def generate_ipi_policies():
+    """Generate monthly IPI policy data from Jan 2023 to today.
+    Target: ~20k SGD/month in premiums.
+    """
     rows = []
-    for i in range(n):
-        plan_name = random.choice(list(IPI_PLANS.keys()))
-        plan = IPI_PLANS[plan_name]
-        country = random.choice(["India", "Singapore", "Thailand"])
-        renewed = random.random() < (0.85 if plan["type"] == "Corporate" else 0.65)
-        lives = random.randint(5, 500) if plan["type"] == "Corporate" else 1
-        start = datetime(2024, 1, 1) + timedelta(days=random.randint(0, 500))
-        end = start + timedelta(days=365)
+    start_date = datetime(2023, 1, 1)
+    end_date = datetime.now()
+    current = start_date
 
-        rows.append({
-            "Policy ID": f"IPI-{random.randint(10000,99999)}",
-            "Country": country,
-            "Plan": plan_name,
-            "Type": plan["type"],
-            "Insurer": plan["insurer"],
-            "Premium": plan["premium"],
-            "Sum Insured": plan["sum_insured"],
-            "Renewed": renewed,
-            "Lives Insured": lives,
-            "Start Date": start.strftime("%Y-%m-%d"),
-            "End Date": end.strftime("%Y-%m-%d"),
-        })
+    while current <= end_date:
+        year, month = current.year, current.month
+        # Seasonal variation
+        seasonal = 1.0
+        if month in (10, 11, 12):
+            seasonal = random.uniform(1.1, 1.3)
+        elif month in (1, 2):
+            seasonal = random.uniform(0.75, 0.9)
+        else:
+            seasonal = random.uniform(0.9, 1.1)
+
+        years_elapsed = (current - datetime(2023, 1, 1)).days / 365.25
+        growth = (1.0 + 0.10) ** years_elapsed
+        anomaly = 1.0
+        if random.random() < 0.1:
+            anomaly = random.uniform(0.5, 0.75)
+        elif random.random() < 0.08:
+            anomaly = random.uniform(1.3, 1.5)
+
+        monthly_budget = IPI_MONTHLY_TARGET_USD * seasonal * growth * anomaly
+        n_policies = max(3, int(monthly_budget / 500 * random.uniform(0.6, 1.4)))
+        weights = np.random.dirichlet(np.ones(n_policies) * 0.5)
+        premiums = weights * monthly_budget
+
+        days_in_month = 28 if month == 2 else (30 if month in (4, 6, 9, 11) else 31)
+
+        for i, premium in enumerate(premiums):
+            premium = max(50, round(premium))
+            plan_name = random.choice(list(IPI_PLANS.keys()))
+            plan = IPI_PLANS[plan_name]
+            country = random.choice(["India", "Singapore", "Thailand"])
+            renewed = random.random() < (0.85 if plan["type"] == "Corporate" else 0.65)
+            lives = random.randint(5, 500) if plan["type"] == "Corporate" else 1
+
+            start_day = random.randint(1, min(days_in_month, 28))
+            start = datetime(year, month, start_day)
+            end = start + timedelta(days=365)
+
+            rows.append({
+                "Policy ID": f"IPI-{random.randint(10000,99999)}",
+                "Country": country,
+                "Plan": plan_name,
+                "Type": plan["type"],
+                "Insurer": plan["insurer"],
+                "Premium": round(premium),
+                "Sum Insured": plan["sum_insured"],
+                "Renewed": renewed,
+                "Lives Insured": lives,
+                "Year": year, "Month": month,
+                "YearMonth": f"{year}-{month:02d}",
+                "Start Date": start.strftime("%Y-%m-%d"),
+                "End Date": end.strftime("%Y-%m-%d"),
+            })
+
+        if month == 12:
+            current = datetime(year + 1, 1, 1)
+        else:
+            current = datetime(year, month + 1, 1)
+
     return pd.DataFrame(rows)
 
 
 @st.cache_data
 def load_data():
-    return generate_ev_policies(500), generate_ipi_policies(600)
+    return generate_ev_policies(), generate_ipi_policies()
 
 
 ev_df, ipi_df = load_data()

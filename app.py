@@ -116,62 +116,120 @@ def get_client(product, country):
         clients = [c for cs in all_pc.values() for c in cs]
     return random.choice(clients) if clients else "Unknown"
 
-def generate_data(n=800):
-    """Generate dummy contract data.
-    Target volumes (annual premium per product, all regions combined):
-      - IPI: ~$10,000
-      - EV/Auto: ~$15,000
-      - Care Aqua: ~$10,000
+# Monthly premium targets in SGD (converted to USD at 1.35 rate)
+SGD_TO_USD = 1.35
+MONTHLY_TARGETS_SGD = {
+    "Income Protection": 20000,  # ~20k SGD/month across all regions
+    "EV / Auto": 15000,          # ~15k SGD/month worldwide
+    "Care Aqua": 6000,            # ~6k SGD/month
+}
+MONTHLY_TARGETS_USD = {k: v / SGD_TO_USD for k, v in MONTHLY_TARGETS_SGD.items()}
+
+def generate_data():
+    """Generate monthly contract data from Jan 2023 to today.
+    Monthly premium targets (SGD):
+      - IPI: ~20,000 SGD/mo
+      - EV/Auto: ~15,000 SGD/mo
+      - Care Aqua: ~6,000 SGD/mo
     """
     rows = []
-    TARGETS = {"Income Protection": 10000, "EV / Auto": 15000, "Care Aqua": 10000}
+    start_date = datetime(2023, 1, 1)
+    end_date = datetime.now()
+    current = start_date
 
-    for prod, target_total in TARGETS.items():
-        budget_remaining = target_total
-        while budget_remaining > 50:  # stop when remaining budget is negligible
-            if prod == "Care Aqua" and random.random() < 0.2:
-                country = "Europe"
-            elif prod == "Care Aqua":
-                country = random.choice(["India", "Singapore", "Thailand"])
-            else:
-                country = random.choice([c for c in COUNTRIES.keys() if c != "Europe"])
-            region = COUNTRIES[country]
-            plan = random.choice(PRODUCTS[prod]["plans"].get(country, PRODUCTS[prod]["plans"][list(PRODUCTS[prod]["plans"].keys())[0]]))
-            annual_premium = get_plan_premium(prod, plan)
-            if annual_premium is None:
-                annual_premium = random.randint(200, 3000)
-            # Cap so we don't overshoot target
-            annual_premium = min(annual_premium, int(budget_remaining))
-            if annual_premium < 50:
-                break
-            plan_type = get_plan_type(prod, plan)
-            ctype = plan_type if plan_type else random.choice(TYPES)
-            client = get_client(prod, country)
-            trantype = random.choice(TRAN_TYPES)
-            paid = random.randint(0, annual_premium)
-            outstanding = annual_premium - paid
-            inst_count = random.randint(1, 12) if trantype == "Inst" else 1
-            start = datetime(2025, 1, 1) + timedelta(days=random.randint(0, 500))
-            end = start + timedelta(days=365)
-            target = annual_premium * random.uniform(1.1, 1.5)
-            rows.append({
-                "Contract ID": f"{''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=3))}{random.randint(10000,99999)}",
-                "Type": ctype, "Client": client, "Product": prod,
-                "Product Label": PRODUCTS[prod]["label"], "Plan": plan,
-                "Region": region, "Country": country,
-                "Annual Premium": annual_premium, "Paid": paid,
-                "Outstanding": outstanding, "Target": round(target),
-                "Trantype": trantype, "Installment Count": inst_count,
-                "Start Date": start.strftime("%Y-%m-%d"),
-                "End Date": end.strftime("%Y-%m-%d"),
-            })
-            budget_remaining -= annual_premium
+    while current <= end_date:
+        year, month = current.year, current.month
+        # Seasonal variation: Q4 tends to be stronger, Q1 weaker
+        seasonal = 1.0
+        if month in (10, 11, 12):
+            seasonal = random.uniform(1.1, 1.35)  # Q4 boost
+        elif month in (1, 2):
+            seasonal = random.uniform(0.75, 0.9)   # Q1 dip
+        elif month in (4, 5):
+            seasonal = random.uniform(0.95, 1.1)   # mid-year pickup
+        else:
+            seasonal = random.uniform(0.9, 1.1)
+
+        # Year-over-year growth factor (~8-15% per year)
+        years_elapsed = (current - start_date).days / 365.25
+        growth = (1.0 + 0.10) ** years_elapsed  # 10% CAGR
+
+        # Some months have anomalies (good/bad months)
+        anomaly = 1.0
+        if random.random() < 0.1:  # 10% chance of a bad month
+            anomaly = random.uniform(0.5, 0.75)
+        elif random.random() < 0.08:  # 8% chance of a great month
+            anomaly = random.uniform(1.3, 1.6)
+
+        for prod, base_target_usd in MONTHLY_TARGETS_USD.items():
+            monthly_budget = base_target_usd * seasonal * growth * anomaly
+
+            # Determine number of contracts for this month
+            avg_contract = {"Income Protection": 800, "EV / Auto": 1200, "Care Aqua": 600}[prod]
+            n_contracts = max(3, int(monthly_budget / avg_contract * random.uniform(0.6, 1.4)))
+
+            # Distribute budget across contracts with some skew
+            weights = np.random.dirichlet(np.ones(n_contracts) * 0.5)  # skewed distribution
+            contract_premiums = weights * monthly_budget
+
+            for i, premium in enumerate(contract_premiums):
+                premium = max(50, round(premium))
+
+                # Country distribution
+                if prod == "Care Aqua":
+                    if random.random() < 0.15:
+                        country = "Europe"
+                    else:
+                        country = random.choice(["India", "Singapore", "Thailand"])
+                else:
+                    country = random.choice([c for c in COUNTRIES.keys() if c != "Europe"])
+                region = COUNTRIES[country]
+
+                plan = random.choice(PRODUCTS[prod]["plans"].get(country, PRODUCTS[prod]["plans"][list(PRODUCTS[prod]["plans"].keys())[0]]))
+                plan_type = get_plan_type(prod, plan)
+                ctype = plan_type if plan_type else random.choice(TYPES)
+                client = get_client(prod, country)
+                trantype = random.choice(TRAN_TYPES)
+
+                # Paid/outstanding split — more realistic: most contracts partially paid
+                paid_pct = random.uniform(0.3, 1.0)
+                paid = round(premium * paid_pct)
+                outstanding = premium - paid
+
+                inst_count = random.randint(1, 12) if trantype == "Inst" else 1
+
+                # Contract start date within the month
+                days_in_month = (current.replace(month=month % 12 + 1, day=1) - timedelta(days=1)).day if month < 12 else 31
+                start_day = random.randint(1, min(days_in_month, 28))
+                start = datetime(year, month, start_day)
+                end = start + timedelta(days=365)
+                target = premium * random.uniform(1.1, 1.5)
+
+                rows.append({
+                    "Contract ID": f"{''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=3))}{random.randint(10000,99999)}",
+                    "Type": ctype, "Client": client, "Product": prod,
+                    "Product Label": PRODUCTS[prod]["label"], "Plan": plan,
+                    "Region": region, "Country": country,
+                    "Annual Premium": premium, "Paid": paid,
+                    "Outstanding": outstanding, "Target": round(target),
+                    "Trantype": trantype, "Installment Count": inst_count,
+                    "Start Date": start.strftime("%Y-%m-%d"),
+                    "End Date": end.strftime("%Y-%m-%d"),
+                    "Year": year, "Month": month,
+                    "YearMonth": f"{year}-{month:02d}",
+                })
+
+        # Move to next month
+        if month == 12:
+            current = datetime(year + 1, 1, 1)
+        else:
+            current = datetime(year, month + 1, 1)
 
     return pd.DataFrame(rows)
 
 @st.cache_data
 def load_data():
-    return generate_data(800)
+    return generate_data()
 
 df = load_data()
 
@@ -194,6 +252,7 @@ page = st.sidebar.radio("Navigate", [
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Total Contracts: **{len(df):,}**")
 st.sidebar.caption(f"Total Premium: **{fmt(convert(df['Annual Premium'].sum(), cur), cur)}**")
+st.sidebar.caption(f"Date Range: **{df['Start Date'].min()}** to **{df['Start Date'].max()}**")
 
 # ─────────────────────────────────────────────
 # HELPERS

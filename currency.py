@@ -44,9 +44,8 @@ def fmt(amount, currency):
 def currency_selector(label="Display Currency", key="currency"):
     """Streamlit sidebar currency selector. Returns currency code."""
     import streamlit as st
-    options = list(EXCHANGE_RATES.keys()) + ["Local"]
-    return st.sidebar.selectbox(label, options, index=1, key=key,  # default SGD
-                                help="Local = INR for India, THB for Thailand, SGD for Singapore, EUR for Europe")
+    options = list(EXCHANGE_RATES.keys())
+    return st.sidebar.selectbox(label, options, index=1, key=key)  # default SGD
 
 
 def get_currency_for_country(country, selected):
