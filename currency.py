@@ -31,15 +31,15 @@ def convert(amount_usd, target_currency):
 
 
 def fmt(amount, currency):
-    """Format amount with currency symbol. Handles NaN/None safely."""
+    """Format amount with currency symbol in thousands (k). Handles NaN/None safely."""
     import math
     if amount is None or (isinstance(amount, float) and (math.isnan(amount) or math.isinf(amount))):
         return "—"
     symbol = CURRENCY_SYMBOLS.get(currency, currency)
     if amount >= 1_000_000:
-        return f"{symbol}{amount/1_000_000:.1f}M"
+        return f"{symbol}{amount/1_000_000:.2f}M"
     elif amount >= 1_000:
-        return f"{symbol}{amount/1_000:.1f}K"
+        return f"{symbol}{amount/1_000:.2f}k"
     else:
         return f"{symbol}{amount:,.0f}"
 

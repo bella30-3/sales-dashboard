@@ -539,8 +539,17 @@ def bar_chart(data, x, y, title, color=None, barmode="group", height=420):
         return fig
     fig = px.bar(data, x=x, y=y, color=color, title=title, barmode=barmode,
                  color_discrete_sequence=PALETTE)
-    # Add formatted text manually (avoids NaN → "undefined" from text_auto)
-    fig.update_traces(text=data[y].apply(lambda v: f"{v:,.0f}" if pd.notna(v) else "—"),
+    # Format text labels in k/M
+    def _fmt_val(v):
+        if pd.isna(v):
+            return "—"
+        if abs(v) >= 1_000_000:
+            return f"{v/1_000_000:.2f}M"
+        elif abs(v) >= 1_000:
+            return f"{v/1_000:.2f}k"
+        else:
+            return f"{v:,.0f}"
+    fig.update_traces(text=data[y].apply(_fmt_val),
                       textposition="outside", textfont_size=13)
     _base_layout(fig, height)
     return fig
@@ -736,101 +745,37 @@ if page == "🌍 Overall Product (World)":
     render_metrics(df_filtered, cmp_filtered, cur, cmp_label)
     st.markdown("---")
 
-    # Two charts side by side
+    # Contracts by Product + Revenue by Product side by side
     c1, c2 = st.columns(2)
     with c1:
-        pc = df_filtered.groupby("Product Label")["Contract ID"].count().reset_index()
+        pc = df_filtered.groupby("Product Label")[["Contract ID"]].count().reset_index()
         pc.columns = ["Product", "Contracts"]
-        st.plotly_chart(bar_chart(pc, "Product", "Contracts", "Contract Count by Product"), use_container_width=True)
+        st.plotly_chart(bar_chart(pc, "Product", "Contracts", "Contracts by Product"), use_container_width=True)
     with c2:
-        if cmp_filtered is not None:
-            merged = make_compare_summary(df_filtered, cmp_filtered, "Product Label")
-            merged.rename(columns={"Product Label": "Product"}, inplace=True)
-            merged = convert_cols(merged, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
-            st.plotly_chart(premium_chart_compare(merged, "Product", f"Premium ({cur}) — Current vs {cmp_label}", cur, cmp_label), use_container_width=True)
-        else:
-            agg = make_summary(df_filtered, "Product Label")
-            agg.rename(columns={"Product Label": "Product"}, inplace=True)
-            agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-            st.plotly_chart(premium_chart(agg, "Product", f"Premium Breakdown ({cur})", cur), use_container_width=True)
-
-    # By Product + Region side by side
-    st.subheader("By Region")
-    for i in range(0, len(REGIONS), 2):
-        cols = st.columns(2)
-        for j, col in enumerate(cols):
-            if i + j >= len(REGIONS):
-                break
-            region = REGIONS[i + j]
-            with col:
-                r_curr = df_filtered[df_filtered["Region"] == region]
-                if cmp_filtered is not None:
-                    r_cmp = cmp_filtered[cmp_filtered["Region"] == region]
-                    merged = make_compare_summary(r_curr, r_cmp, "Product Label")
-                    merged.rename(columns={"Product Label": "Product"}, inplace=True)
-                    merged = convert_cols(merged, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
-                    st.plotly_chart(premium_chart_compare(merged, "Product", f"{region} ({cur}) — vs {cmp_label}", cur, cmp_label), use_container_width=True)
-                else:
-                    pr2 = r_curr.groupby("Product Label").agg(
-                        Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
-                    ).reset_index()
-                    pr2.rename(columns={"Product Label": "Product"}, inplace=True)
-                    pr2 = convert_cols(pr2, ["Paid", "Outstanding", "Target"], cur)
-                    st.plotly_chart(premium_chart(pr2, "Product", f"{region} ({cur})", cur), use_container_width=True)
+        rev = df_filtered.groupby("Product Label")["Annual Premium"].sum().reset_index()
+        rev.columns = ["Product", "Premium"]
+        rev["Premium"] = rev["Premium"].apply(lambda v: convert(v, cur))
+        st.plotly_chart(bar_chart(rev, "Product", "Premium", f"Revenue by Product ({cur})"), use_container_width=True)
 
     # Monthly breakdown
     st.markdown("---")
-    st.subheader("📈 Monthly Premium Trend")
-    monthly = df_filtered.groupby("YearMonth").agg(
-        Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
-        Contracts=("Contract ID", "count"),
-    ).reset_index().sort_values("YearMonth")
-    monthly = convert_cols(monthly, ["Paid", "Outstanding", "Target"], cur)
-    monthly["Total"] = monthly["Paid"] + monthly["Outstanding"]
-
-    fig_m = go.Figure()
-    fig_m.add_trace(go.Bar(
-        x=monthly["YearMonth"], y=monthly["Paid"], name="Paid",
-        marker_color=PAID_COLOR,
-    ))
-    fig_m.add_trace(go.Bar(
-        x=monthly["YearMonth"], y=monthly["Outstanding"], name="Outstanding",
-        marker_color=OUTSTANDING_COLOR,
-    ))
-    fig_m.add_trace(go.Scatter(
-        x=monthly["YearMonth"], y=monthly["Target"], name="Target",
-        line=dict(color=TARGET_COLOR, width=2, dash="dot"),
-        mode="lines",
-    ))
-    fig_m.update_layout(
-        title=f"Monthly Premium Trend ({cur})",
-        barmode="stack", height=400,
-        plot_bgcolor=BG_COLOR, paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, sans-serif", color="#37474F", size=13),
-        xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45),
-        yaxis=dict(gridcolor=GRID_COLOR),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(t=50, b=70, l=60, r=30),
-    )
-    st.plotly_chart(fig_m, use_container_width=True)
-
-    # Monthly by product
-    st.subheader("📈 Monthly by Product")
-    mp = df_filtered.groupby(["YearMonth", "Product Label"])["Annual Premium"].sum().reset_index()
-    mp.columns = ["Month", "Product", "Premium"]
-    mp["Premium"] = mp["Premium"].apply(lambda v: convert(v, cur))
-    fig_mp = px.line(mp, x="Month", y="Premium", color="Product",
-                     title=f"Monthly Premium by Product ({cur})",
-                     color_discrete_sequence=PALETTE, markers=True)
-    fig_mp.update_layout(
-        height=400, plot_bgcolor=BG_COLOR, paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, sans-serif", color="#37474F", size=13),
-        xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45),
-        yaxis=dict(gridcolor=GRID_COLOR),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(t=50, b=70, l=60, r=30),
-    )
-    st.plotly_chart(fig_mp, use_container_width=True)
+    c3, c4 = st.columns(2)
+    with c3:
+        monthly = df_filtered.groupby("YearMonth")["Annual Premium"].sum().reset_index()
+        monthly.columns = ["Month", "Premium"]
+        monthly["Premium"] = monthly["Premium"].apply(lambda v: convert(v, cur))
+        monthly = monthly.sort_values("Month")
+        st.plotly_chart(bar_chart(monthly, "Month", "Premium", f"Monthly Premium ({cur})"), use_container_width=True)
+    with c4:
+        mp = df_filtered.groupby(["YearMonth", "Product Label"])["Annual Premium"].sum().reset_index()
+        mp.columns = ["Month", "Product", "Premium"]
+        mp["Premium"] = mp["Premium"].apply(lambda v: convert(v, cur))
+        fig_mp = px.line(mp, x="Month", y="Premium", color="Product",
+                         title=f"Monthly Premium by Product ({cur})",
+                         color_discrete_sequence=PALETTE, markers=True)
+        _base_layout(fig_mp, 400)
+        fig_mp.update_layout(xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45))
+        st.plotly_chart(fig_mp, use_container_width=True)
 
 # ─────────────────────────────────────────────
 # PAGE 2: REGION DRILL DOWN
