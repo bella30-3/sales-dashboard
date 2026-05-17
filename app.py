@@ -40,6 +40,7 @@ PRODUCTS = {
             "India": ["Standard", "Extended", "Full Cover"],
             "Singapore": ["Basic", "Plus", "Comprehensive"],
             "Thailand": ["Economy", "Standard", "Premium"],
+            "Europe": ["Basic", "Standard", "Premium"],
         },
     },
 }
@@ -48,16 +49,42 @@ COUNTRIES = {
     "Thailand": "Asia",
     "India": "Asia",
     "Singapore": "Asia",
+    "Europe": "Europe",
 }
 REGIONS = ["Asia", "Europe"]
-CLIENTS = [
-    "DBS", "OCBC", "UOB", "Grab", "Shopee", "GoTo", "Tata Motors",
-    "Mahindra", "BYD", "Tesla SG", "AIA", "Prudential", "FWD",
-    "Tokio Marine", "Allianz", "MSIG", "Great Eastern", "Singlife",
-    "Star Health", "ICICI Lombard", "Bajaj Allianz", "TMAP",
-]
+CLIENTS_BY_PRODUCT_COUNTRY = {
+    "EV / Auto": {
+        "India": ["Mahindra Trucks and Buses (MTB)"],
+        "Singapore": ["Cycle and Carriage", "Porsche", "BYD"],
+        "Thailand": ["Porsche", "BYD Forklift", "Subaru", "Hyundai"],
+    },
+    "Income Protection": {
+        "India": ["RQBE"],
+        "Singapore": ["OCBC (GE)", "DBS (ECICS)"],
+        "Thailand": ["Muang Thai"],
+    },
+    "Care Aqua": {
+        "India": [],
+        "Singapore": [],
+        "Thailand": [],
+        "Europe": ["Airspring"],
+    },
+}
+
+# Flatten for backward compatibility
+CLIENTS = list(set(c for p in CLIENTS_BY_PRODUCT_COUNTRY.values() for cs in p.values() for c in cs))
 TYPES = ["Individual", "Corporate"]
 TRAN_TYPES = ["Inst", "Single"]
+
+
+def get_client(product, country):
+    """Pick a random client for the given product+country."""
+    clients = CLIENTS_BY_PRODUCT_COUNTRY.get(product, {}).get(country, [])
+    if not clients:
+        # Fallback: pick from any country for that product
+        all_pc = CLIENTS_BY_PRODUCT_COUNTRY.get(product, {})
+        clients = [c for cs in all_pc.values() for c in cs]
+    return random.choice(clients) if clients else "Unknown"
 
 
 def generate_data(n=800):
@@ -65,11 +92,15 @@ def generate_data(n=800):
     rows = []
     for i in range(n):
         prod = random.choice(list(PRODUCTS.keys()))
-        country = random.choice(list(COUNTRIES.keys()))
+        # Care Aqua can also be Europe
+        if prod == "Care Aqua" and random.random() < 0.2:
+            country = "Europe"
+        else:
+            country = random.choice([c for c in COUNTRIES.keys() if c != "Europe"])
         region = COUNTRIES[country]
-        plan = random.choice(PRODUCTS[prod]["plans"][country])
+        plan = random.choice(PRODUCTS[prod]["plans"].get(country, PRODUCTS[prod]["plans"][list(PRODUCTS[prod]["plans"].keys())[0]]))
         ctype = random.choice(TYPES)
-        client = random.choice(CLIENTS)
+        client = get_client(prod, country)
         trantype = random.choice(TRAN_TYPES)
         annual_premium = random.randint(500, 25000)
         paid = random.randint(0, annual_premium)
