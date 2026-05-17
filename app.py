@@ -84,7 +84,7 @@ CLIENTS_BY_PRODUCT_COUNTRY = {
         "Thailand": ["Porsche", "BYD Forklift", "Subaru", "Hyundai"],
     },
     "Income Protection": {
-        "India": ["RQBE"],
+        "India": ["Raheja (RQBE)"],
         "Singapore": ["OCBC (GE)", "DBS (ECICS)"],
         "Thailand": ["Muang Thai"],
     },
@@ -119,61 +119,92 @@ def get_client(product, country):
 # Monthly premium targets in SGD (converted to USD at 1.35 rate)
 SGD_TO_USD = 1.35
 MONTHLY_TARGETS_SGD = {
-    "Income Protection": 20000,  # ~20k SGD/month across all regions
-    "EV / Auto": 15000,          # ~15k SGD/month worldwide
+    "Income Protection": 20000,  # ~20k SGD/month
+    "EV / Auto": 15000,          # ~15k SGD/month
     "Care Aqua": 6000,            # ~6k SGD/month
 }
 MONTHLY_TARGETS_USD = {k: v / SGD_TO_USD for k, v in MONTHLY_TARGETS_SGD.items()}
 
+# Target policies per month
+MONTHLY_POLICY_COUNTS = {
+    "Income Protection": 300,
+    "EV / Auto": 400,
+    "Care Aqua": 600,
+}
+
+EV_HEALTH_STATES = ["Healthy", "Fair", "Poor"]
+EV_BRANDS = ["Mahindra", "BYD", "Porsche", "Subaru", "Hyundai", "Cycle & Carriage"]
+EV_COUNTRIES = ["India", "Singapore", "Thailand"]
+IPI_PLANS = {
+    "DBS Staff 2000": {"premium": 200, "type": "Individual", "insurer": "DBS", "sum_insured": 2000},
+    "DBS Staff 5000": {"premium": 400, "type": "Individual", "insurer": "DBS", "sum_insured": 5000},
+    "OCBC GA Mandatory 3M A": {"premium": 75, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 15000},
+    "OCBC GA Mandatory 3M B": {"premium": 100, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 25000},
+    "OCBC GA Mandatory 3M C": {"premium": 150, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 40000},
+    "OCBC GA Mandatory 3M 5": {"premium": 150, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 50000},
+    "OCBC GA 12M A": {"premium": 500, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 50000},
+    "OCBC GA 12M B": {"premium": 1000, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 100000},
+    "OCBC GA 12M C": {"premium": 1500, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 150000},
+    "OCBC GA 12M 5": {"premium": 1500, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 200000},
+}
+
+def _random_n_contracts(target_n, prod):
+    """Return a random policy count with wild variance.
+    Sometimes as low as 5, sometimes 2-3x the target.
+    """
+    r = random.random()
+    if r < 0.06:       # 6% chance: dead month (5-30 policies)
+        return random.randint(5, 30)
+    elif r < 0.15:     # 9% chance: slow month
+        return max(5, int(target_n * random.uniform(0.15, 0.4)))
+    elif r < 0.35:     # 20% chance: below average
+        return max(10, int(target_n * random.uniform(0.4, 0.75)))
+    elif r < 0.75:     # 40% chance: around average
+        return int(target_n * random.uniform(0.75, 1.25))
+    elif r < 0.92:     # 17% chance: good month
+        return int(target_n * random.uniform(1.25, 2.0))
+    else:              # 8% chance: blowout month
+        return int(target_n * random.uniform(2.0, 3.5))
+
 def generate_data():
-    """Generate monthly contract data from Jan 2023 to today.
-    Monthly premium targets (SGD):
-      - IPI: ~20,000 SGD/mo
-      - EV/Auto: ~15,000 SGD/mo
-      - Care Aqua: ~6,000 SGD/mo
+    """Generate monthly contract data from Jul 2023 to today.
+    Policy counts per month (avg): IPI ~300, EV ~400, Aqua ~600.
+    Wild variance: some months 5 policies, others 3x the target.
     """
     rows = []
-    start_date = datetime(2023, 1, 1)
+    start_date = datetime(2023, 7, 1)
     end_date = datetime.now()
     current = start_date
 
     while current <= end_date:
         year, month = current.year, current.month
-        # Seasonal variation: Q4 tends to be stronger, Q1 weaker
+
+        # Seasonal multiplier
         seasonal = 1.0
         if month in (10, 11, 12):
-            seasonal = random.uniform(1.1, 1.35)  # Q4 boost
+            seasonal = random.uniform(1.05, 1.25)
         elif month in (1, 2):
-            seasonal = random.uniform(0.75, 0.9)   # Q1 dip
-        elif month in (4, 5):
-            seasonal = random.uniform(0.95, 1.1)   # mid-year pickup
+            seasonal = random.uniform(0.8, 0.95)
         else:
             seasonal = random.uniform(0.9, 1.1)
 
-        # Year-over-year growth factor (~8-15% per year)
+        # Year-over-year growth (~10% CAGR)
         years_elapsed = (current - start_date).days / 365.25
-        growth = (1.0 + 0.10) ** years_elapsed  # 10% CAGR
+        growth = (1.0 + 0.10) ** years_elapsed
 
-        # Some months have anomalies (good/bad months)
-        anomaly = 1.0
-        if random.random() < 0.1:  # 10% chance of a bad month
-            anomaly = random.uniform(0.5, 0.75)
-        elif random.random() < 0.08:  # 8% chance of a great month
-            anomaly = random.uniform(1.3, 1.6)
+        days_in_month = 28 if month == 2 else (30 if month in (4, 6, 9, 11) else 31)
 
         for prod, base_target_usd in MONTHLY_TARGETS_USD.items():
-            monthly_budget = base_target_usd * seasonal * growth * anomaly
+            target_n = MONTHLY_POLICY_COUNTS[prod]
+            n_policies = max(5, int(_random_n_contracts(target_n, prod) * seasonal * growth))
+            monthly_budget = base_target_usd * seasonal * growth * (n_policies / target_n)
 
-            # Determine number of contracts for this month
-            avg_contract = {"Income Protection": 800, "EV / Auto": 1200, "Care Aqua": 600}[prod]
-            n_contracts = max(3, int(monthly_budget / avg_contract * random.uniform(0.6, 1.4)))
+            # Distribute budget with skew
+            weights = np.random.dirichlet(np.ones(n_policies) * 0.5)
+            premiums = weights * monthly_budget
 
-            # Distribute budget across contracts with some skew
-            weights = np.random.dirichlet(np.ones(n_contracts) * 0.5)  # skewed distribution
-            contract_premiums = weights * monthly_budget
-
-            for i, premium in enumerate(contract_premiums):
-                premium = max(50, round(premium))
+            for i, premium in enumerate(premiums):
+                premium = max(30, round(premium))
 
                 # Country distribution
                 if prod == "Care Aqua":
@@ -191,21 +222,17 @@ def generate_data():
                 client = get_client(prod, country)
                 trantype = random.choice(TRAN_TYPES)
 
-                # Paid/outstanding split — more realistic: most contracts partially paid
                 paid_pct = random.uniform(0.3, 1.0)
                 paid = round(premium * paid_pct)
                 outstanding = premium - paid
-
                 inst_count = random.randint(1, 12) if trantype == "Inst" else 1
 
-                # Contract start date within the month
-                days_in_month = (current.replace(month=month % 12 + 1, day=1) - timedelta(days=1)).day if month < 12 else 31
                 start_day = random.randint(1, min(days_in_month, 28))
                 start = datetime(year, month, start_day)
                 end = start + timedelta(days=365)
                 target = premium * random.uniform(1.1, 1.5)
 
-                rows.append({
+                row = {
                     "Contract ID": f"{''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=3))}{random.randint(10000,99999)}",
                     "Type": ctype, "Client": client, "Product": prod,
                     "Product Label": PRODUCTS[prod]["label"], "Plan": plan,
@@ -217,9 +244,47 @@ def generate_data():
                     "End Date": end.strftime("%Y-%m-%d"),
                     "Year": year, "Month": month,
                     "YearMonth": f"{year}-{month:02d}",
-                })
+                }
 
-        # Move to next month
+                # EV-specific fields
+                if prod == "EV / Auto":
+                    ev_country = country if country != "Europe" else random.choice(["India", "Singapore", "Thailand"])
+                    brand = random.choice(EV_BRANDS)
+                    health = random.choices(EV_HEALTH_STATES, weights=[60, 30, 10])[0]
+                    age = random.randint(1, 15)
+                    km = random.randint(5000, 250000)
+                    if age > 10 or km > 150000:
+                        health = random.choices(EV_HEALTH_STATES, weights=[20, 40, 40])[0]
+                    elif age > 5 or km > 80000:
+                        health = random.choices(EV_HEALTH_STATES, weights=[40, 40, 20])[0]
+                    claim_count = random.randint(0, 5) if health == "Poor" else random.randint(0, 3)
+                    claim_amount = claim_count * random.randint(500, 5000)
+                    row.update({
+                        "Health State": health,
+                        "Brand": brand,
+                        "Vehicle Age": age,
+                        "KM Driven": km,
+                        "Claims": claim_count,
+                        "Claim Amount": claim_amount,
+                    })
+
+                # IPI-specific fields
+                if prod == "Income Protection":
+                    plan_info = IPI_PLANS.get(plan, {})
+                    ipi_type = plan_info.get("type", ctype)
+                    insurer = plan_info.get("insurer", "Unknown")
+                    sum_insured = plan_info.get("sum_insured", random.randint(2000, 200000))
+                    renewed = random.random() < (0.85 if ipi_type == "Corporate" else 0.65)
+                    lives = random.randint(5, 500) if ipi_type == "Corporate" else 1
+                    row.update({
+                        "Insurer": insurer,
+                        "Sum Insured": sum_insured,
+                        "Renewed": renewed,
+                        "Lives Insured": lives,
+                    })
+
+                rows.append(row)
+
         if month == 12:
             current = datetime(year + 1, 1, 1)
         else:
@@ -241,18 +306,44 @@ st.sidebar.markdown("---")
 
 cur = currency_selector("Display Currency", "app_currency")
 
-page = st.sidebar.radio("Navigate", [
+# Date range filter
+st.sidebar.markdown("### 📅 Date Range")
+date_min = pd.to_datetime(df["Start Date"]).min().date()
+date_max = pd.to_datetime(df["Start Date"]).max().date()
+date_range = st.sidebar.date_input(
+    "Select period",
+    value=(date_min, date_max),
+    min_value=date_min,
+    max_value=date_max,
+)
+if isinstance(date_range, tuple) and len(date_range) == 2:
+    d_start, d_end = date_range
+else:
+    d_start, d_end = date_min, date_max
+
+df_filtered = df[(pd.to_datetime(df["Start Date"]).dt.date >= d_start) &
+                  (pd.to_datetime(df["Start Date"]).dt.date <= d_end)]
+
+st.sidebar.markdown("---")
+
+PAGES = [
     "🌍 Overall Product (World)",
     "🗺️ Region Drill Down",
     "🏳️ Country Drill Down",
     "📦 Product Drill Down",
+    "🚗 EV Warranty Analysis",
+    "🛡️ IPI Policy Analysis",
     "📋 Raw Data",
-])
+]
+# Support navigation from region drill-down
+nav = st.session_state.pop("nav_page", None)
+nav_idx = PAGES.index(nav) if nav in PAGES else 0
+page = st.sidebar.radio("Navigate", PAGES, index=nav_idx)
 
 st.sidebar.markdown("---")
-st.sidebar.caption(f"Total Contracts: **{len(df):,}**")
-st.sidebar.caption(f"Total Premium: **{fmt(convert(df['Annual Premium'].sum(), cur), cur)}**")
-st.sidebar.caption(f"Date Range: **{df['Start Date'].min()}** to **{df['Start Date'].max()}**")
+st.sidebar.caption(f"Contracts (filtered): **{len(df_filtered):,}**")
+st.sidebar.caption(f"Premium: **{fmt(convert(df_filtered['Annual Premium'].sum(), cur), cur)}**")
+st.sidebar.caption(f"Period: **{d_start}** → **{d_end}**")
 
 # ─────────────────────────────────────────────
 # HELPERS
@@ -279,10 +370,34 @@ def convert_cols(agg, cols, currency):
         agg[c] = agg[c].apply(lambda v: convert(v, currency))
     return agg
 
-def melt_premiums(agg, id_col):
-    return agg.melt(id_vars=[id_col, "Contracts"],
-                    value_vars=["Total_Premium", "Paid", "Outstanding", "Target"],
-                    var_name="Metric", value_name="Amount")
+def premium_chart(agg, group_col, title, currency, height=450):
+    """Stacked bar chart: Paid + Outstanding stacked, Target as a line cutting through."""
+    fig = go.Figure()
+    # Stacked bars: Paid
+    fig.add_trace(go.Bar(
+        x=agg[group_col], y=agg["Paid"], name="Paid",
+        marker_color="#4CAF50", text=agg["Paid"].apply(lambda v: fmt(v, currency)),
+        textposition="inside",
+    ))
+    # Stacked bars: Outstanding
+    fig.add_trace(go.Bar(
+        x=agg[group_col], y=agg["Outstanding"], name="Outstanding",
+        marker_color="#FF9800", text=agg["Outstanding"].apply(lambda v: fmt(v, currency)),
+        textposition="inside",
+    ))
+    # Target line
+    fig.add_trace(go.Scatter(
+        x=agg[group_col], y=agg["Target"], name="Target",
+        mode="lines+markers+text", line=dict(color="red", width=2, dash="dot"),
+        text=agg["Target"].apply(lambda v: fmt(v, currency)), textposition="top center",
+    ))
+    fig.update_layout(
+        barmode="stack", title=title, height=height,
+        title_font_size=16, xaxis_title="", yaxis_title="",
+        legend_title="", plot_bgcolor="rgba(0,0,0,0)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    return fig
 
 # ─────────────────────────────────────────────
 # PAGE 1: OVERALL PRODUCT (WORLD)
@@ -291,44 +406,36 @@ if page == "🌍 Overall Product (World)":
     st.title("🌍 Overall Product Performance — Worldwide")
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Contracts", f"{len(df):,}")
-    col2.metric("Total Premium", fmt(convert(df['Annual Premium'].sum(), cur), cur))
-    col3.metric("Total Paid", fmt(convert(df['Paid'].sum(), cur), cur))
-    col4.metric("Outstanding", fmt(convert(df['Outstanding'].sum(), cur), cur))
+    col1.metric("Total Contracts", f"{len(df_filtered):,}")
+    col2.metric("Total Premium", fmt(convert(df_filtered['Annual Premium'].sum(), cur), cur))
+    col3.metric("Total Paid", fmt(convert(df_filtered['Paid'].sum(), cur), cur))
+    col4.metric("Outstanding", fmt(convert(df_filtered['Outstanding'].sum(), cur), cur))
     st.markdown("---")
 
     # Contracts by product
-    pc = df.groupby("Product Label")["Contract ID"].count().reset_index()
+    pc = df_filtered.groupby("Product Label")["Contract ID"].count().reset_index()
     pc.columns = ["Product", "Contracts"]
     st.plotly_chart(bar_chart(pc, "Product", "Contracts", "Contract Count by Product"), use_container_width=True)
 
-    # Premium by product
-    agg = make_summary(df, "Product Label")
+    # Premium by product (stacked paid + outstanding, target line)
+    agg = make_summary(df_filtered, "Product Label")
     agg.rename(columns={"Product Label": "Product"}, inplace=True)
-    agg = convert_cols(agg, ["Total_Premium", "Paid", "Outstanding", "Target"], cur)
-    st.plotly_chart(bar_chart(melt_premiums(agg, "Product"), "Product", "Amount",
-                              f"Premium Breakdown by Product ({cur})", color="Metric"), use_container_width=True)
+    agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
+    st.plotly_chart(premium_chart(agg, "Product", f"Premium Breakdown by Product ({cur})", cur), use_container_width=True)
 
     # Contracts by Product + Region
-    pr = df.groupby(["Product Label", "Region"])["Contract ID"].count().reset_index()
+    pr = df_filtered.groupby(["Product Label", "Region"])["Contract ID"].count().reset_index()
     pr.columns = ["Product", "Region", "Contracts"]
     st.plotly_chart(bar_chart(pr, "Product", "Contracts", "Contract Count by Product & Region", color="Region"), use_container_width=True)
 
-    # Premium by Product + Region
-    pr2 = df.groupby(["Product Label", "Region"]).agg(
-        Total_Premium=("Annual Premium", "sum"), Paid=("Paid", "sum"),
-        Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
-    ).reset_index()
-    pr2.rename(columns={"Product Label": "Product"}, inplace=True)
-    pr2 = convert_cols(pr2, ["Total_Premium", "Paid", "Outstanding", "Target"], cur)
-    pr2m = pr2.melt(id_vars=["Product", "Region"], value_vars=["Total_Premium", "Paid", "Outstanding", "Target"],
-                    var_name="Metric", value_name="Amount")
-    fig = px.bar(pr2m, x="Product", y="Amount", color="Metric", barmode="group",
-                 facet_row="Region", text_auto=".2s",
-                 title=f"Premium Breakdown by Product & Region ({cur})",
-                 color_discrete_sequence=px.colors.qualitative.Set2)
-    fig.update_layout(height=600, plot_bgcolor="rgba(0,0,0,0)")
-    st.plotly_chart(fig, use_container_width=True)
+    # Premium by Product + Region (stacked paid + outstanding, target line)
+    for region in REGIONS:
+        pr2 = df_filtered[df_filtered["Region"] == region].groupby("Product Label").agg(
+            Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
+        ).reset_index()
+        pr2.rename(columns={"Product Label": "Product"}, inplace=True)
+        pr2 = convert_cols(pr2, ["Paid", "Outstanding", "Target"], cur)
+        st.plotly_chart(premium_chart(pr2, "Product", f"Premium Breakdown — {region} ({cur})", cur), use_container_width=True)
 
 # ─────────────────────────────────────────────
 # PAGE 2: REGION DRILL DOWN
@@ -336,7 +443,7 @@ if page == "🌍 Overall Product (World)":
 elif page == "🗺️ Region Drill Down":
     st.title("🗺️ Region Drill Down")
     region_sel = st.selectbox("Select Region", REGIONS)
-    rdf = df[df["Region"] == region_sel]
+    rdf = df_filtered[df_filtered["Region"] == region_sel]
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Contracts", f"{len(rdf):,}")
@@ -350,35 +457,43 @@ elif page == "🗺️ Region Drill Down":
     rp.columns = ["Product", "Contracts"]
     st.plotly_chart(bar_chart(rp, "Product", "Contracts", f"Contract Count — {region_sel}"), use_container_width=True)
 
-    # Premium by Product
+    # Premium by Product (stacked paid + outstanding, target line)
     agg = make_summary(rdf, "Product Label")
     agg.rename(columns={"Product Label": "Product"}, inplace=True)
-    agg = convert_cols(agg, ["Total_Premium", "Paid", "Outstanding", "Target"], cur)
-    st.plotly_chart(bar_chart(melt_premiums(agg, "Product"), "Product", "Amount",
-                              f"Premium Breakdown — {region_sel} ({cur})", color="Metric"), use_container_width=True)
+    agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
+    st.plotly_chart(premium_chart(agg, "Product", f"Premium Breakdown — {region_sel} ({cur})", cur), use_container_width=True)
 
-    # Premium by Country
+    # Premium by Country (stacked paid + outstanding, target line)
     rc = rdf.groupby("Country").agg(
-        Contracts=("Contract ID", "count"), Total_Premium=("Annual Premium", "sum"),
         Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
     ).reset_index()
-    rc = convert_cols(rc, ["Total_Premium", "Paid", "Outstanding", "Target"], cur)
-    rcm = rc.melt(id_vars=["Country", "Contracts"], value_vars=["Total_Premium", "Paid", "Outstanding", "Target"],
-                  var_name="Metric", value_name="Amount")
-    st.plotly_chart(bar_chart(rcm, "Country", "Amount", f"Premium by Country — {region_sel} ({cur})", color="Metric"), use_container_width=True)
+    rc = convert_cols(rc, ["Paid", "Outstanding", "Target"], cur)
+    st.plotly_chart(premium_chart(rc, "Country", f"Premium by Country — {region_sel} ({cur})", cur), use_container_width=True)
 
     # Contracts by Country + Product
     cp = rdf.groupby(["Country", "Product Label"])["Contract ID"].count().reset_index()
     cp.columns = ["Country", "Product", "Contracts"]
     st.plotly_chart(bar_chart(cp, "Country", "Contracts", f"Contracts by Country & Product — {region_sel}", color="Product"), use_container_width=True)
 
+    # Drill-down button: navigate to Country Drill Down with region's countries
+    region_countries = [c for c, r in COUNTRIES.items() if r == region_sel]
+    if st.button(f"🏳️ Drill into {region_sel} Countries ({', '.join(region_countries)})", key="drill_region"):
+        st.session_state["country_select"] = region_countries
+        st.session_state["nav_page"] = "🏳️ Country Drill Down"
+        st.rerun()
+
 # ─────────────────────────────────────────────
 # PAGE 3: COUNTRY DRILL DOWN
 # ─────────────────────────────────────────────
 elif page == "🏳️ Country Drill Down":
     st.title("🏳️ Country Drill Down")
-    country_sel = st.selectbox("Select Country", list(COUNTRIES.keys()))
-    cdf = df[df["Country"] == country_sel]
+    # Use session state for pre-selected countries (from region drill-down)
+    default_countries = st.session_state.pop("country_select", list(COUNTRIES.keys()))
+    countries_sel = st.multiselect("Select Countries", list(COUNTRIES.keys()), default=default_countries)
+    if not countries_sel:
+        countries_sel = list(COUNTRIES.keys())
+    cdf = df_filtered[df_filtered["Country"].isin(countries_sel)]
+    sel_label = ", ".join(countries_sel) if len(countries_sel) <= 3 else f"{len(countries_sel)} countries"
 
     tab1, tab2 = st.tabs(["📊 All Products", "📋 Plan Level"])
 
@@ -392,35 +507,33 @@ elif page == "🏳️ Country Drill Down":
 
         cp = cdf.groupby("Product Label")["Contract ID"].count().reset_index()
         cp.columns = ["Product", "Contracts"]
-        st.plotly_chart(bar_chart(cp, "Product", "Contracts", f"Contracts by Product — {country_sel}"), use_container_width=True)
+        st.plotly_chart(bar_chart(cp, "Product", "Contracts", f"Contracts by Product — {sel_label}"), use_container_width=True)
 
         agg = make_summary(cdf, "Product Label")
         agg.rename(columns={"Product Label": "Product"}, inplace=True)
-        agg = convert_cols(agg, ["Total_Premium", "Paid", "Outstanding", "Target"], cur)
-        st.plotly_chart(bar_chart(melt_premiums(agg, "Product"), "Product", "Amount",
-                                  f"Premium Breakdown — {country_sel} ({cur})", color="Metric"), use_container_width=True)
+        agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
+        st.plotly_chart(premium_chart(agg, "Product", f"Premium Breakdown — {sel_label} ({cur})", cur), use_container_width=True)
 
         cl = cdf.groupby("Client").agg(Contracts=("Contract ID", "count"), Total_Premium=("Annual Premium", "sum")).reset_index()
         cl = convert_cols(cl, ["Total_Premium"], cur)
         cl = cl.sort_values("Total_Premium", ascending=False).head(15)
-        st.plotly_chart(bar_chart(cl, "Client", "Total_Premium", f"Top Clients — {country_sel} ({cur})"), use_container_width=True)
+        st.plotly_chart(bar_chart(cl, "Client", "Total_Premium", f"Top Clients — {sel_label} ({cur})"), use_container_width=True)
 
     with tab2:
-        st.subheader(f"Plan Level — {country_sel}")
+        st.subheader(f"Plan Level — {sel_label}")
         prod_for_plan = st.selectbox("Select Product", list(PRODUCTS.keys()), key="plan_prod")
         pdf = cdf[cdf["Product"] == prod_for_plan]
 
         if pdf.empty:
-            st.warning(f"No data for {prod_for_plan} in {country_sel}")
+            st.warning(f"No data for {prod_for_plan} in {sel_label}")
         else:
             pl = pdf.groupby("Plan")["Contract ID"].count().reset_index()
             pl.columns = ["Plan", "Contracts"]
-            st.plotly_chart(bar_chart(pl, "Plan", "Contracts", f"Contracts by Plan — {prod_for_plan} ({country_sel})"), use_container_width=True)
+            st.plotly_chart(bar_chart(pl, "Plan", "Contracts", f"Contracts by Plan — {prod_for_plan} ({sel_label})"), use_container_width=True)
 
             agg = make_summary(pdf, "Plan")
-            agg = convert_cols(agg, ["Total_Premium", "Paid", "Outstanding", "Target"], cur)
-            st.plotly_chart(bar_chart(melt_premiums(agg, "Plan"), "Plan", "Amount",
-                                      f"Premium by Plan — {prod_for_plan} ({cur})", color="Metric"), use_container_width=True)
+            agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
+            st.plotly_chart(premium_chart(agg, "Plan", f"Premium by Plan — {prod_for_plan} ({cur})", cur), use_container_width=True)
 
 # ─────────────────────────────────────────────
 # PAGE 4: PRODUCT DRILL DOWN
@@ -428,7 +541,7 @@ elif page == "🏳️ Country Drill Down":
 elif page == "📦 Product Drill Down":
     st.title("📦 Product Drill Down")
     prod_sel = st.selectbox("Select Product", list(PRODUCTS.keys()))
-    pdf = df[df["Product"] == prod_sel]
+    pdf = df_filtered[df_filtered["Product"] == prod_sel]
 
     tab1, tab2 = st.tabs(["📊 Country Level (India & Singapore)", "📋 Plan Level"])
 
@@ -448,9 +561,8 @@ elif page == "📦 Product Drill Down":
         st.plotly_chart(bar_chart(cc, "Country", "Contracts", f"Contracts — {prod_sel} (IN & SG)"), use_container_width=True)
 
         agg = make_summary(isdf, "Country")
-        agg = convert_cols(agg, ["Total_Premium", "Paid", "Outstanding", "Target"], cur)
-        st.plotly_chart(bar_chart(melt_premiums(agg, "Country"), "Country", "Amount",
-                                  f"Premium — {prod_sel} ({cur})", color="Metric"), use_container_width=True)
+        agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
+        st.plotly_chart(premium_chart(agg, "Country", f"Premium — {prod_sel} ({cur})", cur), use_container_width=True)
 
         cl = isdf.groupby(["Country", "Client"]).agg(Contracts=("Contract ID", "count"), Total_Premium=("Annual Premium", "sum")).reset_index()
         cl = convert_cols(cl, ["Total_Premium"], cur)
@@ -463,36 +575,251 @@ elif page == "📦 Product Drill Down":
         if isdf.empty:
             st.warning(f"No data for {prod_sel} in India/Singapore")
         else:
-            cp = isdf.groupby(["Country", "Plan"]).agg(
-                Contracts=("Contract ID", "count"), Total_Premium=("Annual Premium", "sum"),
-                Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
-            ).reset_index()
-            cp = convert_cols(cp, ["Total_Premium", "Paid", "Outstanding", "Target"], cur)
-            cpm = cp.melt(id_vars=["Country", "Plan", "Contracts"],
-                          value_vars=["Total_Premium", "Paid", "Outstanding", "Target"],
-                          var_name="Metric", value_name="Amount")
-            fig = px.bar(cpm, x="Plan", y="Amount", color="Metric", barmode="group",
-                         facet_col="Country", text_auto=".2s",
-                         title=f"Premium by Plan — {prod_sel} ({cur})",
-                         color_discrete_sequence=px.colors.qualitative.Set2)
-            fig.update_layout(height=500, plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True)
+            for c in ["India", "Singapore"]:
+                cdf_plan = isdf[isdf["Country"] == c]
+                if cdf_plan.empty:
+                    continue
+                agg = cdf_plan.groupby("Plan").agg(
+                    Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
+                ).reset_index()
+                agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
+                st.plotly_chart(premium_chart(agg, "Plan", f"Premium by Plan — {prod_sel} ({c}) ({cur})", cur), use_container_width=True)
 
             cpc = isdf.groupby(["Country", "Plan"])["Contract ID"].count().reset_index()
             cpc.columns = ["Country", "Plan", "Contracts"]
             st.plotly_chart(bar_chart(cpc, "Plan", "Contracts", f"Contracts by Plan — {prod_sel}", color="Country"), use_container_width=True)
 
 # ─────────────────────────────────────────────
-# PAGE 5: RAW DATA
+# PAGE 5: EV WARRANTY ANALYSIS
+# ─────────────────────────────────────────────
+elif page == "🚗 EV Warranty Analysis":
+    st.title("🚗 EV Warranty Analysis")
+    ev = df_filtered[df_filtered["Product"] == "EV / Auto"].copy()
+    if ev.empty:
+        st.warning("No EV data in selected period.")
+    else:
+        ev_tab1, ev_tab2, ev_tab3, ev_tab4, ev_tab5 = st.tabs([
+            "🩺 State of Health", "📅 By Age", "🛣️ By KM", "🔄 Health vs KM", "🔄 Health vs Age"])
+
+        with ev_tab1:
+            st.subheader("EV — State of Health")
+            h_country = st.multiselect("Country", EV_COUNTRIES, default=EV_COUNTRIES, key="ev_health_c")
+            hdf = ev[ev["Country"].isin(h_country)]
+
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Policies", f"{len(hdf):,}")
+            col2.metric("Healthy", f"{len(hdf[hdf['Health State']=='Healthy']):,}")
+            col3.metric("Poor", f"{len(hdf[hdf['Health State']=='Poor']):,}")
+            st.markdown("---")
+
+            hc = hdf.groupby("Health State").agg(
+                Policies=("Contract ID", "count"), Avg_Premium=("Annual Premium", "mean"),
+                Claims=("Claims", "sum"), Claim_Amount=("Claim Amount", "sum"),
+            ).reset_index()
+            hc["Avg_Premium"] = hc["Avg_Premium"].apply(lambda v: convert(v, cur))
+            hc["Claim_Amount"] = hc["Claim_Amount"].apply(lambda v: convert(v, cur))
+
+            fig1 = bar_chart(hc.rename(columns={"Health State": "Health", "Policies": "Count"}),
+                             "Health", "Count", "Policies by Health State")
+            st.plotly_chart(fig1, use_container_width=True)
+
+            hcc = hdf.groupby(["Health State", "Country"])["Contract ID"].count().reset_index()
+            hcc.columns = ["Health State", "Country", "Policies"]
+            st.plotly_chart(bar_chart(hcc, "Health State", "Policies", "Health State by Country", color="Country"), use_container_width=True)
+
+            fig2 = bar_chart(hc.rename(columns={"Health State": "Health", "Avg_Premium": f"Avg Premium ({cur})"}),
+                             "Health", f"Avg Premium ({cur})", f"Avg Premium by Health ({cur})")
+            st.plotly_chart(fig2, use_container_width=True)
+
+        with ev_tab2:
+            st.subheader("EV — Vehicle Age")
+            h_country = st.multiselect("Country", EV_COUNTRIES, default=EV_COUNTRIES, key="ev_age_c")
+            adf = ev[ev["Country"].isin(h_country)].copy()
+            adf["Age Bracket"] = pd.cut(adf["Vehicle Age"], bins=[0, 3, 5, 10, 15],
+                                         labels=["1-3 yrs", "4-5 yrs", "6-10 yrs", "11-15 yrs"])
+
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Policies", f"{len(adf):,}")
+            col2.metric("Avg Age", f"{adf['Vehicle Age'].mean():.1f} yrs")
+            col3.metric("Avg KM", f"{adf['KM Driven'].mean():,.0f}")
+            st.markdown("---")
+
+            ac = adf.groupby("Age Bracket", observed=True)["Contract ID"].count().reset_index()
+            ac.columns = ["Age Bracket", "Policies"]
+            st.plotly_chart(bar_chart(ac, "Age Bracket", "Policies", "Policies by Vehicle Age"), use_container_width=True)
+
+            acc = adf.groupby(["Age Bracket", "Country"], observed=True)["Contract ID"].count().reset_index()
+            acc.columns = ["Age Bracket", "Country", "Policies"]
+            st.plotly_chart(bar_chart(acc, "Age Bracket", "Policies", "Vehicle Age by Country", color="Country"), use_container_width=True)
+
+        with ev_tab3:
+            st.subheader("EV — KM Driven")
+            h_country = st.multiselect("Country", EV_COUNTRIES, default=EV_COUNTRIES, key="ev_km_c")
+            kdf = ev[ev["Country"].isin(h_country)].copy()
+            kdf["KM Bracket"] = pd.cut(kdf["KM Driven"], bins=[0, 25000, 50000, 100000, 150000, 250000],
+                                        labels=["0-25K", "25-50K", "50-100K", "100-150K", "150K+"])
+
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Policies", f"{len(kdf):,}")
+            col2.metric("Avg KM", f"{kdf['KM Driven'].mean():,.0f}")
+            col3.metric("Max KM", f"{kdf['KM Driven'].max():,.0f}")
+            st.markdown("---")
+
+            kc = kdf.groupby("KM Bracket", observed=True)["Contract ID"].count().reset_index()
+            kc.columns = ["KM Bracket", "Policies"]
+            st.plotly_chart(bar_chart(kc, "KM Bracket", "Policies", "Policies by KM Driven"), use_container_width=True)
+
+            kcc = kdf.groupby(["KM Bracket", "Country"], observed=True)["Contract ID"].count().reset_index()
+            kcc.columns = ["KM Bracket", "Country", "Policies"]
+            st.plotly_chart(bar_chart(kcc, "KM Bracket", "Policies", "KM by Country", color="Country"), use_container_width=True)
+
+        with ev_tab4:
+            st.subheader("EV — Health State vs KM Driven")
+            h_country = st.multiselect("Country", EV_COUNTRIES, default=EV_COUNTRIES, key="ev_hkm_c")
+            hmdf = ev[ev["Country"].isin(h_country)].copy()
+            hmdf["KM Bracket"] = pd.cut(hmdf["KM Driven"], bins=[0, 25000, 50000, 100000, 150000, 250000],
+                                          labels=["0-25K", "25-50K", "50-100K", "100-150K", "150K+"])
+
+            hkh = hmdf.groupby(["KM Bracket", "Health State"], observed=True)["Contract ID"].count().reset_index()
+            hkh.columns = ["KM Bracket", "Health State", "Policies"]
+            st.plotly_chart(bar_chart(hkh, "KM Bracket", "Policies", "Health State by KM Driven", color="Health State"), use_container_width=True)
+
+            pivot = hmdf.groupby(["KM Bracket", "Health State"], observed=True)["Contract ID"].count().reset_index()
+            pivot.columns = ["KM", "Health", "Count"]
+            piv = pivot.pivot(index="Health", columns="KM", values="Count").fillna(0)
+            fig_hm = px.imshow(piv, text_auto=True, color_continuous_scale="YlOrRd",
+                               title="Heatmap: Health State vs KM")
+            fig_hm.update_layout(height=400)
+            st.plotly_chart(fig_hm, use_container_width=True)
+
+        with ev_tab5:
+            st.subheader("EV — Health State vs Vehicle Age")
+            h_country = st.multiselect("Country", EV_COUNTRIES, default=EV_COUNTRIES, key="ev_hage_c")
+            hadf = ev[ev["Country"].isin(h_country)].copy()
+            hadf["Age Bracket"] = pd.cut(hadf["Vehicle Age"], bins=[0, 3, 5, 10, 15],
+                                          labels=["1-3 yrs", "4-5 yrs", "6-10 yrs", "11-15 yrs"])
+
+            hah = hadf.groupby(["Age Bracket", "Health State"], observed=True)["Contract ID"].count().reset_index()
+            hah.columns = ["Age Bracket", "Health State", "Policies"]
+            st.plotly_chart(bar_chart(hah, "Age Bracket", "Policies", "Health State by Vehicle Age", color="Health State"), use_container_width=True)
+
+            pivot2 = hadf.groupby(["Age Bracket", "Health State"], observed=True)["Contract ID"].count().reset_index()
+            pivot2.columns = ["Age", "Health", "Count"]
+            piv2 = pivot2.pivot(index="Health", columns="Age", values="Count").fillna(0)
+            fig_hm2 = px.imshow(piv2, text_auto=True, color_continuous_scale="YlOrRd",
+                                title="Heatmap: Health State vs Vehicle Age")
+            fig_hm2.update_layout(height=400)
+            st.plotly_chart(fig_hm2, use_container_width=True)
+
+# ─────────────────────────────────────────────
+# PAGE 6: IPI POLICY ANALYSIS
+# ─────────────────────────────────────────────
+elif page == "🛡️ IPI Policy Analysis":
+    st.title("🛡️ IPI Policy Analysis")
+    ipi = df_filtered[df_filtered["Product"] == "Income Protection"].copy()
+    if ipi.empty:
+        st.warning("No IPI data in selected period.")
+    else:
+        ipi_tab1, ipi_tab2, ipi_tab3 = st.tabs([
+            "📋 Sum Insured by Plan", "🔄 Renewal Rate", "👥 Lives Insured"])
+
+        with ipi_tab1:
+            st.subheader("IPI — Sum Insured by Plan Type")
+            i_country = st.multiselect("Country", ["India", "Singapore", "Thailand"],
+                                        default=["India", "Singapore", "Thailand"], key="ipisi_c")
+            sidf = ipi[ipi["Country"].isin(i_country)]
+
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Policies", f"{len(sidf):,}")
+            col2.metric("Total Sum Insured", fmt(convert(sidf["Sum Insured"].sum(), cur), cur))
+            col3.metric("Avg Sum Insured", fmt(convert(sidf["Sum Insured"].mean(), cur), cur))
+            st.markdown("---")
+
+            si = sidf.groupby("Plan").agg(
+                Policies=("Contract ID", "count"),
+                Total_SI=("Sum Insured", "sum"),
+                Avg_SI=("Sum Insured", "mean"),
+            ).reset_index().sort_values("Total_SI", ascending=False)
+            si["Total_SI"] = si["Total_SI"].apply(lambda v: convert(v, cur))
+            si["Avg_SI"] = si["Avg_SI"].apply(lambda v: convert(v, cur))
+            st.plotly_chart(bar_chart(si, "Plan", "Total_SI", f"Total Sum Insured by Plan ({cur})"), use_container_width=True)
+
+            ti = sidf.groupby("Type").agg(
+                Policies=("Contract ID", "count"),
+                Total_SI=("Sum Insured", "sum"),
+                Avg_SI=("Sum Insured", "mean"),
+            ).reset_index()
+            ti["Total_SI"] = ti["Total_SI"].apply(lambda v: convert(v, cur))
+            ti["Avg_SI"] = ti["Avg_SI"].apply(lambda v: convert(v, cur))
+            st.plotly_chart(bar_chart(ti, "Type", "Total_SI", f"Sum Insured by Type ({cur})"), use_container_width=True)
+
+            sic = sidf.groupby(["Plan", "Country"])["Sum Insured"].sum().reset_index()
+            sic["Sum Insured"] = sic["Sum Insured"].apply(lambda v: convert(v, cur))
+            st.plotly_chart(bar_chart(sic, "Plan", "Sum Insured", f"Sum Insured by Plan & Country ({cur})", color="Country"), use_container_width=True)
+
+        with ipi_tab2:
+            st.subheader("IPI — Renewal Rate")
+            i_country = st.multiselect("Country", ["India", "Singapore", "Thailand"],
+                                        default=["India", "Singapore", "Thailand"], key="ipirr_c")
+            rrf = ipi[ipi["Country"].isin(i_country)]
+
+            col1, col2, col3 = st.columns(3)
+            overall_rate = rrf["Renewed"].mean() * 100
+            col1.metric("Renewal Rate", f"{overall_rate:.1f}%")
+            col2.metric("Renewed", f"{rrf['Renewed'].sum():,}")
+            col3.metric("Not Renewed", f"{(~rrf['Renewed']).sum():,}")
+            st.markdown("---")
+
+            rr = rrf.groupby("Plan")["Renewed"].mean().reset_index()
+            rr["Renewal %"] = rr["Renewed"] * 100
+            st.plotly_chart(bar_chart(rr, "Plan", "Renewal %", "Renewal Rate by Plan"), use_container_width=True)
+
+            rt = rrf.groupby("Type")["Renewed"].mean().reset_index()
+            rt["Renewal %"] = rt["Renewed"] * 100
+            st.plotly_chart(bar_chart(rt, "Type", "Renewal %", "Renewal Rate by Type"), use_container_width=True)
+
+            rc = rrf.groupby("Country")["Renewed"].mean().reset_index()
+            rc["Renewal %"] = rc["Renewed"] * 100
+            st.plotly_chart(bar_chart(rc, "Country", "Renewal %", "Renewal Rate by Country"), use_container_width=True)
+
+            rpc = rrf.groupby(["Plan", "Country"])["Renewed"].mean().reset_index()
+            rpc["Renewal %"] = rpc["Renewed"] * 100
+            st.plotly_chart(bar_chart(rpc, "Plan", "Renewal %", "Renewal Rate by Plan & Country", color="Country"), use_container_width=True)
+
+        with ipi_tab3:
+            st.subheader("IPI — Lives Insured")
+            i_country = st.multiselect("Country", ["India", "Singapore", "Thailand"],
+                                        default=["India", "Singapore", "Thailand"], key="ipili_c")
+            lif = ipi[ipi["Country"].isin(i_country)]
+
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Policies", f"{len(lif):,}")
+            col2.metric("Total Lives", f"{lif['Lives Insured'].sum():,}")
+            col3.metric("Avg Lives/Policy", f"{lif['Lives Insured'].mean():.0f}")
+            st.markdown("---")
+
+            ll = lif.groupby("Plan")["Lives Insured"].sum().reset_index().sort_values("Lives Insured", ascending=False)
+            st.plotly_chart(bar_chart(ll, "Plan", "Lives Insured", "Lives Insured by Plan"), use_container_width=True)
+
+            lt = lif.groupby("Type")["Lives Insured"].agg(["sum", "mean"]).reset_index()
+            lt.columns = ["Type", "Total", "Avg"]
+            lt_m = lt.melt(id_vars="Type", var_name="Metric", value_name="Value")
+            st.plotly_chart(bar_chart(lt_m, "Type", "Value", "Lives Insured by Type", color="Metric"), use_container_width=True)
+
+            lc = lif.groupby("Country")["Lives Insured"].sum().reset_index()
+            st.plotly_chart(bar_chart(lc, "Country", "Lives Insured", "Lives Insured by Country"), use_container_width=True)
+
+# ─────────────────────────────────────────────
+# PAGE 7: RAW DATA
 # ─────────────────────────────────────────────
 elif page == "📋 Raw Data":
     st.title("📋 Contract Data")
     col1, col2, col3 = st.columns(3)
-    f_product = col1.multiselect("Product", df["Product"].unique(), default=df["Product"].unique())
-    f_country = col2.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
-    f_type = col3.multiselect("Type", df["Type"].unique(), default=df["Type"].unique())
+    f_product = col1.multiselect("Product", df_filtered["Product"].unique(), default=df_filtered["Product"].unique())
+    f_country = col2.multiselect("Country", df_filtered["Country"].unique(), default=df_filtered["Country"].unique())
+    f_type = col3.multiselect("Type", df_filtered["Type"].unique(), default=df_filtered["Type"].unique())
 
-    filtered = df[(df["Product"].isin(f_product)) & (df["Country"].isin(f_country)) & (df["Type"].isin(f_type))]
+    filtered = df_filtered[(df_filtered["Product"].isin(f_product)) & (df_filtered["Country"].isin(f_country)) & (df_filtered["Type"].isin(f_type))]
     st.dataframe(filtered, use_container_width=True, height=600)
-    st.caption(f"Showing {len(filtered):,} of {len(df):,} contracts")
+    st.caption(f"Showing {len(filtered):,} of {len(df_filtered):,} contracts")
     st.download_button("📥 Download CSV", filtered.to_csv(index=False), "contracts.csv", "text/csv")
