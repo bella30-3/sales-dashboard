@@ -529,11 +529,20 @@ def _base_layout(fig, height=280):
     return fig
 
 def bar_chart(data, x, y, title, color=None, barmode="group", height=280):
-    title = title or ""
+    title = str(title) if title else ""
+    # Drop NaN in the x-axis column
+    data = data.dropna(subset=[x]).copy()
+    data[y] = data[y].fillna(0)
+    if data.empty:
+        fig = go.Figure()
+        fig.update_layout(title=title or None)
+        return fig
     fig = px.bar(data, x=x, y=y, color=color, title=title, barmode=barmode,
-                 text_auto=".2s", color_discrete_sequence=PALETTE)
+                 color_discrete_sequence=PALETTE)
+    # Add formatted text manually (avoids NaN → "undefined" from text_auto)
+    fig.update_traces(text=data[y].apply(lambda v: f"{v:,.0f}" if pd.notna(v) else "—"),
+                      textposition="outside", textfont_size=10)
     _base_layout(fig, height)
-    fig.update_traces(textposition="outside", textfont_size=10)
     return fig
 
 def make_summary(df_in, group_col):
@@ -562,45 +571,51 @@ def make_compare_summary(df_curr, df_cmp, group_col):
     merged = merged.fillna(0)
     return merged
 
+def _safe_text(series, currency):
+    """Convert a numeric series to formatted text, replacing NaN/inf with '—'."""
+    return series.apply(lambda v: fmt(v, currency) if pd.notna(v) and not (isinstance(v, float) and np.isinf(v)) else "—")
+
 def premium_chart(agg, group_col, title, currency, height=280):
     """Stacked bar chart: Paid + Outstanding stacked, Target as a line cutting through.
     Shows totals on top and target achievement %.
     """
-    title = title or ""
+    title = str(title) if title else ""
     # Clean data - drop NaN rows
     agg = agg.dropna(subset=[group_col]).copy()
     if agg.empty:
-        return go.Figure()
+        fig = go.Figure()
+        fig.update_layout(title=title or None)
+        return fig
+
+    agg["Paid"] = agg["Paid"].fillna(0)
+    agg["Outstanding"] = agg["Outstanding"].fillna(0)
+    agg["Target"] = agg["Target"].fillna(0)
 
     totals = agg["Paid"] + agg["Outstanding"]
     target_safe = agg["Target"].replace(0, np.nan)
     achievement = ((agg["Paid"] + agg["Outstanding"]) / target_safe * 100).fillna(0)
 
     fig = go.Figure()
-    # Stacked bars: Paid
     fig.add_trace(go.Bar(
         x=agg[group_col], y=agg["Paid"], name="Paid",
         marker_color=PAID_COLOR, marker_line=dict(width=0),
-        text=agg["Paid"].apply(lambda v: fmt(v, currency)),
+        text=_safe_text(agg["Paid"], currency),
         textposition="inside", textfont=dict(size=9, color="white"),
     ))
-    # Stacked bars: Outstanding
     fig.add_trace(go.Bar(
         x=agg[group_col], y=agg["Outstanding"], name="Outstanding",
         marker_color=OUTSTANDING_COLOR, marker_line=dict(width=0),
-        text=agg["Outstanding"].apply(lambda v: fmt(v, currency)),
+        text=_safe_text(agg["Outstanding"], currency),
         textposition="inside", textfont=dict(size=9, color="white"),
     ))
-    # Target line
     fig.add_trace(go.Scatter(
         x=agg[group_col], y=agg["Target"], name="Target",
         mode="lines+markers+text",
         line=dict(color=TARGET_COLOR, width=2, dash="dot"),
         marker=dict(size=5, color=TARGET_COLOR, line=dict(width=1, color="white")),
-        text=agg["Target"].apply(lambda v: fmt(v, currency)), textposition="top center",
+        text=_safe_text(agg["Target"], currency), textposition="top center",
         textfont=dict(size=9, color=TARGET_COLOR),
     ))
-    # Total annotations on top of each bar
     for x_val, total, ach in zip(agg[group_col], totals, achievement):
         if pd.isna(x_val) or pd.isna(total):
             continue
@@ -616,43 +631,46 @@ def premium_chart(agg, group_col, title, currency, height=280):
     fig.update_layout(barmode="stack", margin=dict(t=65))
     return fig
 
-def premium_chart_compare(merged, group_col, title, currency, cmp_label="Comparison", height=300):
-    """Grouped bar chart: Current vs Comparison period, with Target line.
-    merged must have: Paid, Outstanding, Target, Paid_cmp, Outstanding_cmp, Target_cmp
-    """
-    title = title or ""
+def premium_chart_compare(merged, group_col, title, currency, cmp_label="", height=300):
+    """Grouped bar chart: Current vs Comparison period, with Target line."""
+    title = str(title) if title else ""
+    cmp_label = str(cmp_label) if cmp_label else "Comparison"
     merged = merged.dropna(subset=[group_col]).copy()
     if merged.empty:
-        return go.Figure()
+        fig = go.Figure()
+        fig.update_layout(title=title or None)
+        return fig
+
+    # Fill NaN in numeric columns
+    for c in ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"]:
+        if c in merged.columns:
+            merged[c] = merged[c].fillna(0)
 
     fig = go.Figure()
-    # Current period - stacked
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Paid"], name="Paid (Current)",
         marker_color=PAID_COLOR, marker_line=dict(width=0),
-        text=merged["Paid"].apply(lambda v: fmt(v, currency)),
+        text=_safe_text(merged["Paid"], currency),
         textposition="inside", textfont=dict(size=8, color="white"),
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Outstanding"], name="Outstanding (Current)",
         marker_color=OUTSTANDING_COLOR, marker_line=dict(width=0),
-        text=merged["Outstanding"].apply(lambda v: fmt(v, currency)),
+        text=_safe_text(merged["Outstanding"], currency),
         textposition="inside", textfont=dict(size=8, color="white"),
     ))
-    # Comparison period - lighter/muted colors
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Paid_cmp"], name=f"Paid ({cmp_label})",
         marker_color="rgba(79, 195, 247, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
-        text=merged["Paid_cmp"].apply(lambda v: fmt(v, currency)),
+        text=_safe_text(merged["Paid_cmp"], currency),
         textposition="inside", textfont=dict(size=8, color="#37474F"),
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Outstanding_cmp"], name=f"Outstanding ({cmp_label})",
         marker_color="rgba(206, 147, 216, 0.35)", marker_line=dict(width=1, color=OUTSTANDING_COLOR),
-        text=merged["Outstanding_cmp"].apply(lambda v: fmt(v, currency)),
+        text=_safe_text(merged["Outstanding_cmp"], currency),
         textposition="inside", textfont=dict(size=8, color="#37474F"),
     ))
-    # Target lines
     fig.add_trace(go.Scatter(
         x=merged[group_col], y=merged["Target"], name="Target (Current)",
         line=dict(color=TARGET_COLOR, width=2, dash="dot"),
@@ -667,30 +685,35 @@ def premium_chart_compare(merged, group_col, title, currency, cmp_label="Compari
     fig.update_layout(barmode="group", margin=dict(t=50))
     return fig
 
-def bar_chart_compare(merged, group_col, y_curr, y_cmp, title, currency, cmp_label="Comparison", height=280):
+def bar_chart_compare(merged, group_col, y_curr, y_cmp, title, currency, cmp_label="", height=280):
     """Simple grouped bar: current vs comparison for a single metric."""
-    title = title or ""
+    title = str(title) if title else ""
+    cmp_label = str(cmp_label) if cmp_label else "Comparison"
     merged = merged.dropna(subset=[group_col]).copy()
     if merged.empty:
         return go.Figure()
+    merged[y_curr] = merged[y_curr].fillna(0)
+    merged[y_cmp] = merged[y_cmp].fillna(0)
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged[y_curr], name="Current",
-        marker_color=PAID_COLOR, text=merged[y_curr].apply(lambda v: fmt(v, currency)),
+        marker_color=PAID_COLOR, text=_safe_text(merged[y_curr], currency),
         textposition="outside", textfont=dict(size=9),
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged[y_cmp], name=cmp_label,
         marker_color="rgba(79, 195, 247, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
-        text=merged[y_cmp].apply(lambda v: fmt(v, currency)),
+        text=_safe_text(merged[y_cmp], currency),
         textposition="outside", textfont=dict(size=9),
     ))
     _base_layout(fig, height)
     fig.update_layout(barmode="group", margin=dict(t=50))
     return fig
 
+
 def render_metrics(df_curr, df_cmp, cur, cmp_label=""):
     """Render metric cards. If comparison data exists, show deltas."""
+    cmp_label = str(cmp_label) if cmp_label else "Comparison"
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Contracts", f"{len(df_curr):,}")
     c2.metric("Total Premium", fmt(convert(df_curr['Annual Premium'].sum(), cur), cur))

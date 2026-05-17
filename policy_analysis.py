@@ -220,12 +220,15 @@ st.sidebar.caption(f"IPI Policies: **{len(ipi_df):,}**")
 # HELPER
 # ─────────────────────────────────────────────
 def bar(data, x, y, title, color=None, barmode="group", text_auto=True):
+    data = data.dropna(subset=[x]).copy()
+    data[y] = data[y].fillna(0)
     fig = px.bar(data, x=x, y=y, color=color, title=title, barmode=barmode,
-                 text_auto=".2s" if text_auto else True,
                  color_discrete_sequence=px.colors.qualitative.Set2)
+    # Add formatted text manually (avoids NaN → "undefined" from text_auto)
+    fig.update_traces(text=data[y].apply(lambda v: f"{v:,.0f}" if pd.notna(v) else "—"),
+                      textposition="outside")
     fig.update_layout(height=450, title_font_size=16, xaxis_title="", yaxis_title="",
                       legend_title="", plot_bgcolor="rgba(0,0,0,0)")
-    fig.update_traces(textposition="outside")
     return fig
 
 
@@ -484,7 +487,7 @@ elif page == "🛡️ IPI — Sum Insured by Plan":
     sic = df.groupby(["Plan", "Country"]).agg(Sum_Insured=("Sum Insured", "sum")).reset_index()
     sic["Sum_Insured"] = sic["Sum_Insured"].apply(lambda v: convert(v, cur))
     fig2 = px.bar(sic, x="Plan", y="Sum_Insured", color="Country", barmode="group",
-                  title=f"Sum Insured by Plan & Country ({cur})", text_auto=".2s",
+                  title=f"Sum Insured by Plan & Country ({cur})",
                   color_discrete_sequence=px.colors.qualitative.Set2)
     fig2.update_layout(height=450, plot_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig2, use_container_width=True)
@@ -542,7 +545,7 @@ elif page == "🛡️ IPI — Renewal Rate":
     rpc = df.groupby(["Plan", "Country"])["Renewed"].mean().reset_index()
     rpc["Renewal Rate %"] = rpc["Renewed"] * 100
     fig4 = px.bar(rpc, x="Plan", y="Renewal Rate %", color="Country", barmode="group",
-                  title="Renewal Rate by Plan & Country", text_auto=".1f",
+                  title="Renewal Rate by Plan & Country",
                   color_discrete_sequence=px.colors.qualitative.Set2)
     fig4.update_layout(height=450, plot_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig4, use_container_width=True)
@@ -584,7 +587,7 @@ elif page == "🛡️ IPI — Lives Insured":
     # By plan + country
     lpc = df.groupby(["Plan", "Country"])["Lives Insured"].sum().reset_index()
     fig4 = px.bar(lpc, x="Plan", y="Lives Insured", color="Country", barmode="group",
-                  title="Lives Insured by Plan & Country", text_auto=".2s",
+                  title="Lives Insured by Plan & Country",
                   color_discrete_sequence=px.colors.qualitative.Set2)
     fig4.update_layout(height=450, plot_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig4, use_container_width=True)
