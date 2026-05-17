@@ -104,7 +104,6 @@ PRODUCTS = {
         "plans": {
             "India": ["RQBE (All)"],
             "Singapore": ["DBS Staff 2000", "DBS Staff 5000", "OCBC GA 12M A", "OCBC GA 12M B", "OCBC GA 12M C", "OCBC GA 12M D"],
-            "Thailand": ["Basic", "Advanced", "Premium"],
         },
         "premiums": {
             "DBS Staff 2000": 200,
@@ -129,10 +128,10 @@ PRODUCTS = {
         "label": "Care - Aqua Warranty",
         "desc": "Warranty Contracts & Amounts",
         "plans": {
-            "India": ["Standard", "Extended", "Full Cover"],
-            "Singapore": ["Basic", "Plus", "Comprehensive"],
-            "Thailand": ["Economy", "Standard", "Premium"],
-            "Europe": ["Basic", "Standard", "Premium"],
+            "India": ["Pure", "Fresh", "Pro"],
+            "Singapore": ["Pure", "Fresh", "Pro"],
+            "Thailand": ["Pure", "Fresh", "Pro"],
+            "Europe": ["Pure", "Fresh", "Pro"],
         },
     },
 }
