@@ -108,11 +108,11 @@ PRODUCTS = {
         },
         "premiums": {
             "DBS Staff 2000": 200,
-            "DBS Staff 5000": 400,
-            "OCBC GA 12M A": 500,
-            "OCBC GA 12M B": 1000,
-            "OCBC GA 12M C": 1500,
-            "OCBC GA 12M D": 1500,
+            "DBS Staff 5000": 450,
+            "OCBC GA 12M A": 100,
+            "OCBC GA 12M B": 150,
+            "OCBC GA 12M C": 200,
+            "OCBC GA 12M D": 200,
             "RQBE (All)": 350,
         },
         "types": {
@@ -211,11 +211,11 @@ EV_BRANDS = ["Mahindra", "BYD", "Porsche", "Subaru", "Hyundai", "Cycle & Carriag
 EV_COUNTRIES = ["India", "Singapore", "Thailand"]
 IPI_PLANS = {
     "DBS Staff 2000": {"premium": 200, "type": "Individual", "insurer": "DBS", "sum_insured": 2000},
-    "DBS Staff 5000": {"premium": 400, "type": "Individual", "insurer": "DBS", "sum_insured": 5000},
-    "OCBC GA 12M A": {"premium": 500, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 50000},
-    "OCBC GA 12M B": {"premium": 1000, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 100000},
-    "OCBC GA 12M C": {"premium": 1500, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 150000},
-    "OCBC GA 12M D": {"premium": 1500, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 200000},
+    "DBS Staff 5000": {"premium": 450, "type": "Individual", "insurer": "DBS", "sum_insured": 5000},
+    "OCBC GA 12M A": {"premium": 100, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 50000},
+    "OCBC GA 12M B": {"premium": 150, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 100000},
+    "OCBC GA 12M C": {"premium": 200, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 150000},
+    "OCBC GA 12M D": {"premium": 200, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 200000},
     "RQBE (All)": {"premium": 350, "type": "Individual", "insurer": "RQBE", "sum_insured": 25000},
 }
 
