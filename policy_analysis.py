@@ -106,14 +106,11 @@ def generate_ev_policies():
 IPI_PLANS = {
     "DBS Staff 2000": {"premium": 200, "type": "Individual", "insurer": "DBS", "sum_insured": 2000},
     "DBS Staff 5000": {"premium": 400, "type": "Individual", "insurer": "DBS", "sum_insured": 5000},
-    "OCBC GA Mandatory 3M A": {"premium": 75, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 15000},
-    "OCBC GA Mandatory 3M B": {"premium": 100, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 25000},
-    "OCBC GA Mandatory 3M C": {"premium": 150, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 40000},
-    "OCBC GA Mandatory 3M 5": {"premium": 150, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 50000},
     "OCBC GA 12M A": {"premium": 500, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 50000},
     "OCBC GA 12M B": {"premium": 1000, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 100000},
     "OCBC GA 12M C": {"premium": 1500, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 150000},
-    "OCBC GA 12M 5": {"premium": 1500, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 200000},
+    "OCBC GA 12M D": {"premium": 1500, "type": "Corporate", "insurer": "OCBC (GE)", "sum_insured": 200000},
+    "RQBE (All)": {"premium": 350, "type": "Individual", "insurer": "RQBE", "sum_insured": 25000},
 }
 
 
