@@ -792,11 +792,11 @@ if page == "🌍 Executive Summary":
         st.plotly_chart(fig_m, use_container_width=True)
 
     with c4:
-        # 5. Monthly revenue by product — stock-chart style line with hover
-        mp = df_filtered.groupby(["YearMonth", "Start Date", "Product Label"]).agg(
+        # 5. Monthly revenue by product — clean line chart with distinct colours
+        mp = df_filtered.groupby(["YearMonth", "Product Label"]).agg(
             Premium=("Annual Premium", "sum"), Target=("Target", "sum"),
             Contracts=("Contract ID", "count"),
-        ).reset_index().sort_values("Start Date")
+        ).reset_index().sort_values("YearMonth")
         mp["Premium"] = mp["Premium"].apply(lambda v: convert(v, cur))
         mp.rename(columns={"Product Label": "Product"}, inplace=True)
 
@@ -807,15 +807,13 @@ if page == "🌍 Executive Summary":
         }
         fig_mp = go.Figure()
         for prod_name in mp["Product"].unique():
-            pp = mp[mp["Product"] == prod_name]
+            pp = mp[mp["Product"] == prod_name].sort_values("YearMonth")
             color = PRODUCT_COLORS.get(prod_name, PALETTE[0])
-            rgb = tuple(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
             fig_mp.add_trace(go.Scatter(
                 x=pp["YearMonth"], y=pp["Premium"], name=prod_name,
                 mode="lines+markers",
-                line=dict(color=color, width=2.5),
-                marker=dict(size=5, color=color),
-                fill="tozeroy", fillcolor=f"rgba({rgb[0]},{rgb[1]},{rgb[2]},0.08)",
+                line=dict(color=color, width=3),
+                marker=dict(size=7, color=color, line=dict(width=1, color="white")),
                 hovertemplate=(
                     f"<b>{prod_name}</b><br>"
                     "Month: %{x}<br>"
@@ -826,18 +824,19 @@ if page == "🌍 Executive Summary":
                 customdata=pp[["Contracts"]].values,
             ))
         # Target line (total across all products)
-        target_m = df_filtered.groupby("YearMonth")["Target"].sum().reset_index()
+        target_m = df_filtered.groupby("YearMonth")["Target"].sum().reset_index().sort_values("YearMonth")
         target_m["Target"] = target_m["Target"].apply(lambda v: convert(v, cur))
         fig_mp.add_trace(go.Scatter(
             x=target_m["YearMonth"], y=target_m["Target"], name="Target",
-            line=dict(color=TARGET_COLOR, width=2, dash="dot"),
-            mode="lines", marker=dict(size=4, color=TARGET_COLOR),
+            line=dict(color=TARGET_COLOR, width=2.5, dash="dot"),
+            mode="lines+markers", marker=dict(size=6, color=TARGET_COLOR, line=dict(width=1, color="white")),
             hovertemplate="Month: %{x}<br>Target: %{y:,.2f}<extra></extra>",
         ))
         _base_layout(fig_mp, 400)
         fig_mp.update_layout(
             title=f"Monthly Revenue by Product ({cur})",
             xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=11)),
         )
         st.plotly_chart(fig_mp, use_container_width=True)
 
