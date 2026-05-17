@@ -510,25 +510,25 @@ TARGET_COLOR = "#F48FB1"
 BG_COLOR = "rgba(17, 25, 40, 0.02)"
 GRID_COLOR = "rgba(100, 150, 255, 0.08)"
 
-def _base_layout(fig, height=280):
+def _base_layout(fig, height=420):
     fig.update_layout(
         height=height,
-        title_font_size=13,
+        title_font_size=16,
         title_font_color="#37474F",
         xaxis_title="",
         yaxis_title="",
         legend_title="",
         plot_bgcolor=BG_COLOR,
         paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, sans-serif", color="#37474F", size=11),
-        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, tickfont=dict(size=10)),
-        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, tickfont=dict(size=10)),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10)),
-        margin=dict(t=50, b=30, l=30, r=10),
+        font=dict(family="Inter, sans-serif", color="#37474F", size=13),
+        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR),
+        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(t=60, b=50, l=60, r=30),
     )
     return fig
 
-def bar_chart(data, x, y, title, color=None, barmode="group", height=280):
+def bar_chart(data, x, y, title, color=None, barmode="group", height=420):
     title = str(title) if title else ""
     # Drop NaN in the x-axis column
     data = data.dropna(subset=[x]).copy()
@@ -541,7 +541,7 @@ def bar_chart(data, x, y, title, color=None, barmode="group", height=280):
                  color_discrete_sequence=PALETTE)
     # Add formatted text manually (avoids NaN → "undefined" from text_auto)
     fig.update_traces(text=data[y].apply(lambda v: f"{v:,.0f}" if pd.notna(v) else "—"),
-                      textposition="outside", textfont_size=10)
+                      textposition="outside", textfont_size=13)
     _base_layout(fig, height)
     return fig
 
@@ -575,7 +575,7 @@ def _safe_text(series, currency):
     """Convert a numeric series to formatted text, replacing NaN/inf with '—'."""
     return series.apply(lambda v: fmt(v, currency) if pd.notna(v) and not (isinstance(v, float) and np.isinf(v)) else "—")
 
-def premium_chart(agg, group_col, title, currency, height=280):
+def premium_chart(agg, group_col, title, currency, height=420):
     """Stacked bar chart: Paid + Outstanding stacked, Target as a line cutting through.
     Shows totals on top and target achievement %.
     """
@@ -600,21 +600,21 @@ def premium_chart(agg, group_col, title, currency, height=280):
         x=agg[group_col], y=agg["Paid"], name="Paid",
         marker_color=PAID_COLOR, marker_line=dict(width=0),
         text=_safe_text(agg["Paid"], currency),
-        textposition="inside", textfont=dict(size=9, color="white"),
+        textposition="inside", textfont=dict(size=11, color="white"),
     ))
     fig.add_trace(go.Bar(
         x=agg[group_col], y=agg["Outstanding"], name="Outstanding",
         marker_color=OUTSTANDING_COLOR, marker_line=dict(width=0),
         text=_safe_text(agg["Outstanding"], currency),
-        textposition="inside", textfont=dict(size=9, color="white"),
+        textposition="inside", textfont=dict(size=11, color="white"),
     ))
     fig.add_trace(go.Scatter(
         x=agg[group_col], y=agg["Target"], name="Target",
         mode="lines+markers+text",
         line=dict(color=TARGET_COLOR, width=2, dash="dot"),
-        marker=dict(size=5, color=TARGET_COLOR, line=dict(width=1, color="white")),
+        marker=dict(size=8, color=TARGET_COLOR, line=dict(width=1, color="white")),
         text=_safe_text(agg["Target"], currency), textposition="top center",
-        textfont=dict(size=9, color=TARGET_COLOR),
+        textfont=dict(size=11, color=TARGET_COLOR),
     ))
     for x_val, total, ach in zip(agg[group_col], totals, achievement):
         if pd.isna(x_val) or pd.isna(total):
@@ -623,15 +623,15 @@ def premium_chart(agg, group_col, title, currency, height=280):
         fig.add_annotation(
             x=x_val, y=total,
             text=f"<b>{fmt(convert(total, currency), currency)}</b><br>{hit} {ach:.0f}%",
-            showarrow=False, yshift=20,
-            font=dict(size=9, color="#37474F"),
+            showarrow=False, yshift=25,
+            font=dict(size=12, color="#37474F"),
             align="center",
         )
     _base_layout(fig, height)
     fig.update_layout(barmode="stack", margin=dict(t=65))
     return fig
 
-def premium_chart_compare(merged, group_col, title, currency, cmp_label="", height=300):
+def premium_chart_compare(merged, group_col, title, currency, cmp_label="", height=420):
     """Grouped bar chart: Current vs Comparison period, with Target line."""
     title = str(title) if title else ""
     cmp_label = str(cmp_label) if cmp_label else "Comparison"
@@ -651,41 +651,41 @@ def premium_chart_compare(merged, group_col, title, currency, cmp_label="", heig
         x=merged[group_col], y=merged["Paid"], name="Paid (Current)",
         marker_color=PAID_COLOR, marker_line=dict(width=0),
         text=_safe_text(merged["Paid"], currency),
-        textposition="inside", textfont=dict(size=8, color="white"),
+        textposition="inside", textfont=dict(size=10, color="white"),
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Outstanding"], name="Outstanding (Current)",
         marker_color=OUTSTANDING_COLOR, marker_line=dict(width=0),
         text=_safe_text(merged["Outstanding"], currency),
-        textposition="inside", textfont=dict(size=8, color="white"),
+        textposition="inside", textfont=dict(size=10, color="white"),
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Paid_cmp"], name=f"Paid ({cmp_label})",
         marker_color="rgba(79, 195, 247, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
         text=_safe_text(merged["Paid_cmp"], currency),
-        textposition="inside", textfont=dict(size=8, color="#37474F"),
+        textposition="inside", textfont=dict(size=10, color="#37474F"),
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Outstanding_cmp"], name=f"Outstanding ({cmp_label})",
         marker_color="rgba(206, 147, 216, 0.35)", marker_line=dict(width=1, color=OUTSTANDING_COLOR),
         text=_safe_text(merged["Outstanding_cmp"], currency),
-        textposition="inside", textfont=dict(size=8, color="#37474F"),
+        textposition="inside", textfont=dict(size=10, color="#37474F"),
     ))
     fig.add_trace(go.Scatter(
         x=merged[group_col], y=merged["Target"], name="Target (Current)",
         line=dict(color=TARGET_COLOR, width=2, dash="dot"),
-        mode="lines+markers", marker=dict(size=5, color=TARGET_COLOR),
+        mode="lines+markers", marker=dict(size=8, color=TARGET_COLOR),
     ))
     fig.add_trace(go.Scatter(
         x=merged[group_col], y=merged["Target_cmp"], name=f"Target ({cmp_label})",
         line=dict(color="rgba(244, 143, 177, 0.5)", width=1.5, dash="dot"),
-        mode="lines+markers", marker=dict(size=4, color="rgba(244, 143, 177, 0.5)"),
+        mode="lines+markers", marker=dict(size=6, color="rgba(244, 143, 177, 0.5)"),
     ))
     _base_layout(fig, height)
     fig.update_layout(barmode="group", margin=dict(t=50))
     return fig
 
-def bar_chart_compare(merged, group_col, y_curr, y_cmp, title, currency, cmp_label="", height=280):
+def bar_chart_compare(merged, group_col, y_curr, y_cmp, title, currency, cmp_label="", height=420):
     """Simple grouped bar: current vs comparison for a single metric."""
     title = str(title) if title else ""
     cmp_label = str(cmp_label) if cmp_label else "Comparison"
@@ -698,13 +698,13 @@ def bar_chart_compare(merged, group_col, y_curr, y_cmp, title, currency, cmp_lab
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged[y_curr], name="Current",
         marker_color=PAID_COLOR, text=_safe_text(merged[y_curr], currency),
-        textposition="outside", textfont=dict(size=9),
+        textposition="outside", textfont=dict(size=11),
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged[y_cmp], name=cmp_label,
         marker_color="rgba(79, 195, 247, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
         text=_safe_text(merged[y_cmp], currency),
-        textposition="outside", textfont=dict(size=9),
+        textposition="outside", textfont=dict(size=11),
     ))
     _base_layout(fig, height)
     fig.update_layout(barmode="group", margin=dict(t=50))
@@ -803,13 +803,13 @@ if page == "🌍 Overall Product (World)":
         mode="lines",
     ))
     fig_m.update_layout(
-        barmode="stack", height=350,
+        barmode="stack", height=400,
         plot_bgcolor=BG_COLOR, paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, sans-serif", color="#37474F", size=11),
-        xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45, tickfont=dict(size=9)),
+        font=dict(family="Inter, sans-serif", color="#37474F", size=13),
+        xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45),
         yaxis=dict(gridcolor=GRID_COLOR),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10)),
-        margin=dict(t=40, b=60, l=40, r=10),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(t=50, b=70, l=60, r=30),
     )
     st.plotly_chart(fig_m, use_container_width=True)
 
@@ -822,12 +822,12 @@ if page == "🌍 Overall Product (World)":
                      title=f"Monthly Premium by Product ({cur})",
                      color_discrete_sequence=PALETTE, markers=True)
     fig_mp.update_layout(
-        height=300, plot_bgcolor=BG_COLOR, paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, sans-serif", color="#37474F", size=11),
-        xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45, tickfont=dict(size=9)),
+        height=400, plot_bgcolor=BG_COLOR, paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter, sans-serif", color="#37474F", size=13),
+        xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45),
         yaxis=dict(gridcolor=GRID_COLOR),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10)),
-        margin=dict(t=40, b=60, l=40, r=10),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(t=50, b=70, l=60, r=30),
     )
     st.plotly_chart(fig_mp, use_container_width=True)
 
