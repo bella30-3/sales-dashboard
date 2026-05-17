@@ -387,9 +387,11 @@ cur = currency_selector("Display Currency", "app_currency")
 st.sidebar.markdown("### 📅 Date Range")
 date_min = pd.to_datetime(df["Start Date"]).min().date()
 date_max = pd.to_datetime(df["Start Date"]).max().date()
+current_year_start = datetime(datetime.now().year, 1, 1).date()
+default_start = max(current_year_start, date_min)
 date_range = st.sidebar.date_input(
     "Select period",
-    value=(date_min, date_max),
+    value=(default_start, date_max),
     min_value=date_min,
     max_value=date_max,
 )
