@@ -472,7 +472,7 @@ if cmp_filtered is not None:
     st.sidebar.caption(f"Compare: **{cmp_start}** → **{cmp_end}**")
 
 PAGES = [
-    "🌍 Overall Product (World)",
+    "🌍 Executive Summary",
     "🗺️ Region Drill Down",
     "🏳️ Country Drill Down",
     "📦 Product Drill Down",
@@ -739,16 +739,16 @@ def render_metrics(df_curr, df_cmp, cur, cmp_label=""):
 # ─────────────────────────────────────────────
 # PAGE 1: OVERALL PRODUCT (WORLD)
 # ─────────────────────────────────────────────
-if page == "🌍 Overall Product (World)":
-    st.title("🌍 Overall Product Performance — Worldwide")
+if page == "🌍 Executive Summary":
+    st.title("🌍 Executive Summary — Worldwide")
 
     render_metrics(df_filtered, cmp_filtered, cur, cmp_label)
     st.markdown("---")
 
-    # Contracts by Product + Revenue by Product side by side
+    # 1. Contracts by Product + 2. Revenue by Product side by side
     c1, c2 = st.columns(2)
     with c1:
-        pc = df_filtered.groupby("Product Label")[["Contract ID"]].count().reset_index()
+        pc = df_filtered.groupby("Product Label")["Contract ID"].count().reset_index()
         pc.columns = ["Product", "Contracts"]
         st.plotly_chart(bar_chart(pc, "Product", "Contracts", "Contracts by Product"), use_container_width=True)
     with c2:
@@ -757,24 +757,88 @@ if page == "🌍 Overall Product (World)":
         rev["Premium"] = rev["Premium"].apply(lambda v: convert(v, cur))
         st.plotly_chart(bar_chart(rev, "Product", "Premium", f"Revenue by Product ({cur})"), use_container_width=True)
 
-    # Monthly breakdown
+    # 3. Revenue Breakdown by Product (Received vs Pending + Target)
+    st.markdown("---")
+    agg = make_summary(df_filtered, "Product Label")
+    agg.rename(columns={"Product Label": "Product"}, inplace=True)
+    agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
+    st.plotly_chart(premium_chart(agg, "Product", f"Revenue Breakdown — Received vs Pending ({cur})", cur), use_container_width=True)
+
+    # 4 & 5. Monthly charts side by side
     st.markdown("---")
     c3, c4 = st.columns(2)
     with c3:
-        monthly = df_filtered.groupby("YearMonth")["Annual Premium"].sum().reset_index()
-        monthly.columns = ["Month", "Premium"]
-        monthly["Premium"] = monthly["Premium"].apply(lambda v: convert(v, cur))
-        monthly = monthly.sort_values("Month")
-        st.plotly_chart(bar_chart(monthly, "Month", "Premium", f"Monthly Premium ({cur})"), use_container_width=True)
+        # 4. Monthly revenue for all products combined
+        monthly_agg = df_filtered.groupby("YearMonth").agg(
+            Premium=("Annual Premium", "sum"), Target=("Target", "sum"),
+        ).reset_index()
+        monthly_agg["Premium"] = monthly_agg["Premium"].apply(lambda v: convert(v, cur))
+        monthly_agg["Target"] = monthly_agg["Target"].apply(lambda v: convert(v, cur))
+        monthly_agg = monthly_agg.sort_values("YearMonth")
+        fig_m = go.Figure()
+        fig_m.add_trace(go.Bar(
+            x=monthly_agg["YearMonth"], y=monthly_agg["Premium"], name="Revenue",
+            marker_color=PAID_COLOR,
+            hovertemplate="%{x}<br>Revenue: %{y:,.2f}<extra></extra>",
+        ))
+        fig_m.add_trace(go.Scatter(
+            x=monthly_agg["YearMonth"], y=monthly_agg["Target"], name="Target",
+            line=dict(color=TARGET_COLOR, width=2.5, dash="dot"),
+            mode="lines+markers", marker=dict(size=6, color=TARGET_COLOR),
+            hovertemplate="%{x}<br>Target: %{y:,.2f}<extra></extra>",
+        ))
+        _base_layout(fig_m, 400)
+        fig_m.update_layout(title=f"Monthly Revenue ({cur})", xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45))
+        st.plotly_chart(fig_m, use_container_width=True)
+
     with c4:
-        mp = df_filtered.groupby(["YearMonth", "Product Label"])["Annual Premium"].sum().reset_index()
-        mp.columns = ["Month", "Product", "Premium"]
+        # 5. Monthly revenue by product — stock-chart style line with hover
+        mp = df_filtered.groupby(["YearMonth", "Start Date", "Product Label"]).agg(
+            Premium=("Annual Premium", "sum"), Target=("Target", "sum"),
+            Contracts=("Contract ID", "count"),
+        ).reset_index().sort_values("Start Date")
         mp["Premium"] = mp["Premium"].apply(lambda v: convert(v, cur))
-        fig_mp = px.line(mp, x="Month", y="Premium", color="Product",
-                         title=f"Monthly Premium by Product ({cur})",
-                         color_discrete_sequence=PALETTE, markers=True)
+        mp.rename(columns={"Product Label": "Product"}, inplace=True)
+
+        PRODUCT_COLORS = {
+            "Income Protection Insurance": "#1565C0",
+            "Electric Vehicles / Auto": "#00897B",
+            "Care - Aqua Warranty": "#7B1FA2",
+        }
+        fig_mp = go.Figure()
+        for prod_name in mp["Product"].unique():
+            pp = mp[mp["Product"] == prod_name]
+            color = PRODUCT_COLORS.get(prod_name, PALETTE[0])
+            rgb = tuple(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+            fig_mp.add_trace(go.Scatter(
+                x=pp["YearMonth"], y=pp["Premium"], name=prod_name,
+                mode="lines+markers",
+                line=dict(color=color, width=2.5),
+                marker=dict(size=5, color=color),
+                fill="tozeroy", fillcolor=f"rgba{rgb}(0.08)",
+                hovertemplate=(
+                    f"<b>{prod_name}</b><br>"
+                    "Month: %{x}<br>"
+                    "Revenue: %{y:,.2f}<br>"
+                    "Contracts: %{customdata[0]:,}"
+                    "<extra></extra>"
+                ),
+                customdata=pp[["Contracts"]].values,
+            ))
+        # Target line (total across all products)
+        target_m = df_filtered.groupby("YearMonth")["Target"].sum().reset_index()
+        target_m["Target"] = target_m["Target"].apply(lambda v: convert(v, cur))
+        fig_mp.add_trace(go.Scatter(
+            x=target_m["YearMonth"], y=target_m["Target"], name="Target",
+            line=dict(color=TARGET_COLOR, width=2, dash="dot"),
+            mode="lines", marker=dict(size=4, color=TARGET_COLOR),
+            hovertemplate="Month: %{x}<br>Target: %{y:,.2f}<extra></extra>",
+        ))
         _base_layout(fig_mp, 400)
-        fig_mp.update_layout(xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45))
+        fig_mp.update_layout(
+            title=f"Monthly Revenue by Product ({cur})",
+            xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45),
+        )
         st.plotly_chart(fig_mp, use_container_width=True)
 
 # ─────────────────────────────────────────────
