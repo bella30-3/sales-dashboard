@@ -932,33 +932,25 @@ elif page == "📦 Product Drill Down":
         render_metrics(pdf, cmp_filtered[cmp_filtered["Product"] == prod_sel] if cmp_filtered is not None else None, cur, cmp_label)
         st.markdown("---")
 
-        # 1. Contracts + Revenue combined (horizontal grouped bar, Country on y-axis)
+        # 1. Revenue by Country (hover shows contract count)
         cp = pdf.groupby("Country").agg(
             Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
         ).reset_index()
         cp["Revenue"] = cp["Revenue"].apply(lambda v: convert(v, cur))
         fig_cp = go.Figure()
         fig_cp.add_trace(go.Bar(
-            y=cp["Country"], x=cp["Contracts"], name="Contracts",
-            orientation="h", marker_color=PAID_COLOR,
-            text=[f"{int(c):,}" for c in cp["Contracts"]],
-            textposition="outside", textfont=dict(size=11),
-            customdata=[fmt(v, cur) for v in cp["Revenue"]],
-            hovertemplate="<b>%{y}</b><br>Contracts: %{x:,}<br>Revenue: %{customdata}<extra></extra>",
-        ))
-        fig_cp.add_trace(go.Bar(
             y=cp["Country"], x=cp["Revenue"], name=f"Revenue ({cur})",
-            orientation="h", marker_color=OUTSTANDING_COLOR,
+            orientation="h", marker_color=PALETTE[0],
             text=[fmt(v, cur) for v in cp["Revenue"]],
             textposition="outside", textfont=dict(size=11),
-            hovertemplate="<b>%{y}</b><br>Revenue: %{x}<extra></extra>",
+            customdata=cp[["Contracts"]].values,
+            hovertemplate="<b>%{y}</b><br>Revenue: %{x}<br>Contracts: %{customdata[0]:,}<extra></extra>",
         ))
         _base_layout(fig_cp, max(300, len(cp) * 80))
         fig_cp.update_layout(
-            title=f"Contracts & Revenue — {prod_sel}",
-            barmode="group",
+            title=f"Revenue by Country — {prod_sel}",
             xaxis=dict(gridcolor=GRID_COLOR),
-            legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),
+            showlegend=False,
         )
         st.plotly_chart(fig_cp, use_container_width=True)
 
