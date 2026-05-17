@@ -523,7 +523,7 @@ def _base_layout(fig, height=420):
         font=dict(family="Inter, sans-serif", color="#37474F", size=13),
         xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR),
         yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
         margin=dict(t=60, b=50, l=60, r=30),
     )
     return fig
@@ -836,37 +836,53 @@ elif page == "🗺️ Region Drill Down":
     # Charts side by side
     c1, c2 = st.columns(2)
     with c1:
-        rp = rdf.groupby("Product Label")["Contract ID"].count().reset_index()
-        rp.columns = ["Product", "Contracts"]
-        st.plotly_chart(bar_chart(rp, "Product", "Contracts", f"Contracts — {region_sel}"), use_container_width=True)
+        rp = rdf.groupby("Product Label").agg(
+            Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
+        ).reset_index()
+        rp.columns = ["Product", "Contracts", "Revenue"]
+        rp["Revenue"] = rp["Revenue"].apply(lambda v: convert(v, cur))
+        fig_c = bar_chart(rp[["Product", "Contracts"]], "Product", "Contracts", f"Contracts — {region_sel}")
+        fig_c.update_traces(
+            hovertemplate="<b>%{x}</b><br>Contracts: %{y:,}<br>Revenue: %{customdata}<extra></extra>",
+            customdata=[fmt(v, cur) for v in rp["Revenue"]],
+        )
+        st.plotly_chart(fig_c, use_container_width=True)
     with c2:
         if r_cmp is not None and len(r_cmp) > 0:
             merged = make_compare_summary(rdf, r_cmp, "Product Label")
             merged.rename(columns={"Product Label": "Product"}, inplace=True)
             merged = convert_cols(merged, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
-            st.plotly_chart(premium_chart_compare(merged, "Product", f"Premium — {region_sel} ({cur}) vs {cmp_label}", cur, cmp_label), use_container_width=True)
+            st.plotly_chart(premium_chart_compare(merged, "Product", f"Revenue Breakdown (Product) — {cur} vs {cmp_label}", cur, cmp_label), use_container_width=True)
         else:
             agg = make_summary(rdf, "Product Label")
             agg.rename(columns={"Product Label": "Product"}, inplace=True)
             agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-            st.plotly_chart(premium_chart(agg, "Product", f"Premium — {region_sel} ({cur})", cur), use_container_width=True)
+            st.plotly_chart(premium_chart(agg, "Product", f"Revenue Breakdown (Product) — {cur}", cur), use_container_width=True)
 
     c3, c4 = st.columns(2)
     with c3:
         if r_cmp is not None and len(r_cmp) > 0:
             merged_c = make_compare_summary(rdf, r_cmp, "Country")
             merged_c = convert_cols(merged_c, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
-            st.plotly_chart(premium_chart_compare(merged_c, "Country", f"By Country ({cur}) vs {cmp_label}", cur, cmp_label), use_container_width=True)
+            st.plotly_chart(premium_chart_compare(merged_c, "Country", f"Revenue Breakdown (Country) — {cur} vs {cmp_label}", cur, cmp_label), use_container_width=True)
         else:
             rc = rdf.groupby("Country").agg(
                 Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
             ).reset_index()
             rc = convert_cols(rc, ["Paid", "Outstanding", "Target"], cur)
-            st.plotly_chart(premium_chart(rc, "Country", f"Premium by Country ({cur})", cur), use_container_width=True)
+            st.plotly_chart(premium_chart(rc, "Country", f"Revenue Breakdown (Country) — {cur}", cur), use_container_width=True)
     with c4:
-        cp = rdf.groupby(["Country", "Product Label"])["Contract ID"].count().reset_index()
-        cp.columns = ["Country", "Product", "Contracts"]
-        st.plotly_chart(bar_chart(cp, "Country", "Contracts", f"Contracts by Country & Product", color="Product"), use_container_width=True)
+        cp = rdf.groupby(["Country", "Product Label"]).agg(
+            Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
+        ).reset_index()
+        cp.columns = ["Country", "Product", "Contracts", "Revenue"]
+        cp["Revenue"] = cp["Revenue"].apply(lambda v: convert(v, cur))
+        fig_cp = bar_chart(cp[["Country", "Product", "Contracts"]], "Country", "Contracts", f"Contracts by Country & Product", color="Product")
+        for trace in fig_cp.data:
+            mask = cp["Product"] == trace.name
+            trace.customdata = [[fmt(v, cur)] for v in cp[mask]["Revenue"]]
+            trace.hovertemplate = "<b>%{x} — " + trace.name + "</b><br>Contracts: %{y:,}<br>Revenue: %{customdata[0]}<extra></extra>"
+        st.plotly_chart(fig_cp, use_container_width=True)
 
     # Drill-down button: navigate to Country Drill Down with region's countries
     region_countries = [c for c, r in COUNTRIES.items() if r == region_sel]
