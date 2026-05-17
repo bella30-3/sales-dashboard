@@ -196,14 +196,15 @@ POLICY_PREMIUM_RANGE_SGD = {
     "Care Aqua": (1800, 2200),
 }
 
-# Realistic monthly contract counts per plan
-# IPI: ~500 OCBC lives/mo + ~50 DBS lives/mo = ~550/mo total → ~90/plan/mo
-# EV: ~100 contracts/mo → ~33/plan/mo
-# Airspring: ~40 devices/mo (2000 SGD each)
+# Realistic monthly contract counts (total per product, not per plan)
+# IPI: ~50 lives/mo → avg ~200 SGD → ~10K/mo revenue
+# EV: ~30/mo → avg ~300 SGD → ~9K/mo revenue
+# Aqua: ~10/mo → avg ~2000 SGD → ~20K/mo revenue
+# Total: ~39K/mo × 12mo = ~468K SGD/year (within 1M budget)
 MONTHLY_POLICY_COUNTS = {
-    "Income Protection": 90,
-    "EV / Auto": 33,
-    "Care Aqua": 40,
+    "Income Protection": 50,
+    "EV / Auto": 30,
+    "Care Aqua": 10,
 }
 
 SGD_TO_USD = 1.35
