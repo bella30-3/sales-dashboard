@@ -10,7 +10,72 @@ from currency import convert, fmt, currency_selector
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
-st.set_page_config(page_title="Sales Dashboard", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Sales Dashboard", layout="wide", initial_sidebar_state="expanded", page_icon="🌊")
+
+# Custom CSS for cute futuristic blue theme
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+.stApp {
+    font-family: 'Inter', sans-serif;
+}
+
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0D1B2A 0%, #1B2838 100%);
+}
+
+[data-testid="stSidebar"] .stMarkdown p,
+[data-testid="stSidebar"] .stMarkdown li,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] .stCaption {
+    color: #B0BEC5 !important;
+}
+
+[data-testid="stSidebar"] .stRadio label span {
+    color: #CFD8DC !important;
+}
+
+[data-testid="stSidebar"] .stRadio label[data-checked="true"] span {
+    color: #4FC3F7 !important;
+    font-weight: 600;
+}
+
+[data-testid="stSidebar"] hr {
+    border-color: rgba(79, 195, 247, 0.2) !important;
+}
+
+h1, h2, h3 {
+    color: #263238 !important;
+}
+
+.stMetric > div {
+    background: linear-gradient(135deg, #E3F2FD 0%, #F3E5F5 100%);
+    border-radius: 12px;
+    padding: 12px 16px;
+    border: 1px solid rgba(79, 195, 247, 0.15);
+}
+
+.stTabs [data-baseweb="tab-list"] {
+    gap: 4px;
+}
+
+.stTabs [data-baseweb="tab"] {
+    border-radius: 8px 8px 0 0;
+    padding: 8px 16px;
+}
+
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, #4FC3F7 0%, #81D4FA 100%);
+    color: white !important;
+}
+
+div[data-testid="stDataFrame"] {
+    border-radius: 8px;
+    overflow: hidden;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 # DATA GENERATION
@@ -337,14 +402,49 @@ st.sidebar.caption(f"Premium: **{fmt(convert(df_filtered['Annual Premium'].sum()
 st.sidebar.caption(f"Period: **{d_start}** → **{d_end}**")
 
 # ─────────────────────────────────────────────
-# HELPERS
+# THEME — Cute Futuristic Blue
 # ─────────────────────────────────────────────
+PALETTE = [
+    "#4FC3F7",  # sky blue
+    "#81D4FA",  # light blue
+    "#80DEEA",  # cyan
+    "#B39DDB",  # soft purple
+    "#CE93D8",  # lavender
+    "#F48FB1",  # pink
+    "#FFD54F",  # warm yellow
+    "#A5D6A7",  # mint green
+]
+PALETTE_BARS = ["#4FC3F7", "#80DEEA", "#B39DDB", "#F48FB1", "#FFD54F", "#A5D6A7"]
+ACCENT_BLUE = "#29B6F6"
+PAID_COLOR = "#4FC3F7"
+OUTSTANDING_COLOR = "#CE93D8"
+TARGET_COLOR = "#F48FB1"
+BG_COLOR = "rgba(17, 25, 40, 0.02)"
+GRID_COLOR = "rgba(100, 150, 255, 0.08)"
+
+def _base_layout(fig, height=450):
+    fig.update_layout(
+        height=height,
+        title_font_size=16,
+        title_font_color="#37474F",
+        xaxis_title="",
+        yaxis_title="",
+        legend_title="",
+        plot_bgcolor=BG_COLOR,
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter, sans-serif", color="#37474F", size=12),
+        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR),
+        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(t=60, b=40, l=40, r=20),
+    )
+    return fig
+
 def bar_chart(data, x, y, title, color=None, barmode="group"):
     fig = px.bar(data, x=x, y=y, color=color, title=title, barmode=barmode,
-                 text_auto=".2s", color_discrete_sequence=px.colors.qualitative.Set2)
-    fig.update_layout(height=450, title_font_size=16, xaxis_title="", yaxis_title="",
-                      legend_title="", plot_bgcolor="rgba(0,0,0,0)")
-    fig.update_traces(textposition="outside")
+                 text_auto=".2s", color_discrete_sequence=PALETTE)
+    _base_layout(fig)
+    fig.update_traces(textposition="outside", textfont_size=11)
     return fig
 
 def make_summary(df_in, group_col):
@@ -367,27 +467,28 @@ def premium_chart(agg, group_col, title, currency, height=450):
     # Stacked bars: Paid
     fig.add_trace(go.Bar(
         x=agg[group_col], y=agg["Paid"], name="Paid",
-        marker_color="#4CAF50", text=agg["Paid"].apply(lambda v: fmt(v, currency)),
-        textposition="inside",
+        marker_color=PAID_COLOR, marker_line=dict(width=0),
+        text=agg["Paid"].apply(lambda v: fmt(v, currency)),
+        textposition="inside", textfont=dict(size=10, color="white"),
     ))
     # Stacked bars: Outstanding
     fig.add_trace(go.Bar(
         x=agg[group_col], y=agg["Outstanding"], name="Outstanding",
-        marker_color="#FF9800", text=agg["Outstanding"].apply(lambda v: fmt(v, currency)),
-        textposition="inside",
+        marker_color=OUTSTANDING_COLOR, marker_line=dict(width=0),
+        text=agg["Outstanding"].apply(lambda v: fmt(v, currency)),
+        textposition="inside", textfont=dict(size=10, color="white"),
     ))
     # Target line
     fig.add_trace(go.Scatter(
         x=agg[group_col], y=agg["Target"], name="Target",
-        mode="lines+markers+text", line=dict(color="red", width=2, dash="dot"),
+        mode="lines+markers+text",
+        line=dict(color=TARGET_COLOR, width=2.5, dash="dot"),
+        marker=dict(size=7, color=TARGET_COLOR, line=dict(width=1, color="white")),
         text=agg["Target"].apply(lambda v: fmt(v, currency)), textposition="top center",
+        textfont=dict(size=10, color=TARGET_COLOR),
     ))
-    fig.update_layout(
-        barmode="stack", title=title, height=height,
-        title_font_size=16, xaxis_title="", yaxis_title="",
-        legend_title="", plot_bgcolor="rgba(0,0,0,0)",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-    )
+    _base_layout(fig, height)
+    fig.update_layout(barmode="stack")
     return fig
 
 # ─────────────────────────────────────────────
@@ -678,7 +779,7 @@ elif page == "🚗 EV Warranty Analysis":
             pivot = hmdf.groupby(["KM Bracket", "Health State"], observed=True)["Contract ID"].count().reset_index()
             pivot.columns = ["KM", "Health", "Count"]
             piv = pivot.pivot(index="Health", columns="KM", values="Count").fillna(0)
-            fig_hm = px.imshow(piv, text_auto=True, color_continuous_scale="YlOrRd",
+            fig_hm = px.imshow(piv, text_auto=True, color_continuous_scale=[[0, "#E3F2FD"], [0.5, "#4FC3F7"], [1, "#01579B"]],
                                title="Heatmap: Health State vs KM")
             fig_hm.update_layout(height=400)
             st.plotly_chart(fig_hm, use_container_width=True)
@@ -697,7 +798,7 @@ elif page == "🚗 EV Warranty Analysis":
             pivot2 = hadf.groupby(["Age Bracket", "Health State"], observed=True)["Contract ID"].count().reset_index()
             pivot2.columns = ["Age", "Health", "Count"]
             piv2 = pivot2.pivot(index="Health", columns="Age", values="Count").fillna(0)
-            fig_hm2 = px.imshow(piv2, text_auto=True, color_continuous_scale="YlOrRd",
+            fig_hm2 = px.imshow(piv2, text_auto=True, color_continuous_scale=[[0, "#F3E5F5"], [0.5, "#CE93D8"], [1, "#4A148C"]],
                                 title="Heatmap: Health State vs Vehicle Age")
             fig_hm2.update_layout(height=400)
             st.plotly_chart(fig_hm2, use_container_width=True)
