@@ -308,7 +308,7 @@ def generate_data():
                 start_day = random.randint(1, min(days_in_month, 28))
                 start = datetime(year, month, start_day)
                 end = start + timedelta(days=365)
-                target = premium  # Target matches actuals
+                target = round(premium * random.uniform(0.85, 1.15))  # Target close to actuals
 
                 row = {
                     "Contract ID": f"{''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=3))}{random.randint(10000,99999)}",
