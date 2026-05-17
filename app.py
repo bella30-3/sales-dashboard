@@ -443,29 +443,30 @@ TARGET_COLOR = "#F48FB1"
 BG_COLOR = "rgba(17, 25, 40, 0.02)"
 GRID_COLOR = "rgba(100, 150, 255, 0.08)"
 
-def _base_layout(fig, height=300):
+def _base_layout(fig, height=280):
     fig.update_layout(
         height=height,
-        title_font_size=16,
+        title_font_size=13,
         title_font_color="#37474F",
         xaxis_title="",
         yaxis_title="",
         legend_title="",
         plot_bgcolor=BG_COLOR,
         paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, sans-serif", color="#37474F", size=12),
-        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR),
-        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(t=60, b=40, l=40, r=20),
+        font=dict(family="Inter, sans-serif", color="#37474F", size=11),
+        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, tickfont=dict(size=10)),
+        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, tickfont=dict(size=10)),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10)),
+        margin=dict(t=50, b=30, l=30, r=10),
     )
     return fig
 
-def bar_chart(data, x, y, title, color=None, barmode="group", height=300):
+def bar_chart(data, x, y, title, color=None, barmode="group", height=280):
+    title = title or ""
     fig = px.bar(data, x=x, y=y, color=color, title=title, barmode=barmode,
                  text_auto=".2s", color_discrete_sequence=PALETTE)
     _base_layout(fig, height)
-    fig.update_traces(textposition="outside", textfont_size=11)
+    fig.update_traces(textposition="outside", textfont_size=10)
     return fig
 
 def make_summary(df_in, group_col):
@@ -582,12 +583,19 @@ def render_comparison_metrics(df_in, d_start, d_end, cur, prefix=""):
             else:
                 comp_cols[i].metric(label, "N/A")
 
-def premium_chart(agg, group_col, title, currency, height=320):
+def premium_chart(agg, group_col, title, currency, height=280):
     """Stacked bar chart: Paid + Outstanding stacked, Target as a line cutting through.
     Shows totals on top and target achievement %.
     """
+    title = title or ""
+    # Clean data - drop NaN rows
+    agg = agg.dropna(subset=[group_col]).copy()
+    if agg.empty:
+        return go.Figure()
+
     totals = agg["Paid"] + agg["Outstanding"]
-    achievement = ((agg["Paid"] + agg["Outstanding"]) / agg["Target"] * 100).fillna(0)
+    target_safe = agg["Target"].replace(0, np.nan)
+    achievement = ((agg["Paid"] + agg["Outstanding"]) / target_safe * 100).fillna(0)
 
     fig = go.Figure()
     # Stacked bars: Paid
@@ -595,36 +603,38 @@ def premium_chart(agg, group_col, title, currency, height=320):
         x=agg[group_col], y=agg["Paid"], name="Paid",
         marker_color=PAID_COLOR, marker_line=dict(width=0),
         text=agg["Paid"].apply(lambda v: fmt(v, currency)),
-        textposition="inside", textfont=dict(size=10, color="white"),
+        textposition="inside", textfont=dict(size=9, color="white"),
     ))
     # Stacked bars: Outstanding
     fig.add_trace(go.Bar(
         x=agg[group_col], y=agg["Outstanding"], name="Outstanding",
         marker_color=OUTSTANDING_COLOR, marker_line=dict(width=0),
         text=agg["Outstanding"].apply(lambda v: fmt(v, currency)),
-        textposition="inside", textfont=dict(size=10, color="white"),
+        textposition="inside", textfont=dict(size=9, color="white"),
     ))
     # Target line
     fig.add_trace(go.Scatter(
         x=agg[group_col], y=agg["Target"], name="Target",
         mode="lines+markers+text",
-        line=dict(color=TARGET_COLOR, width=2.5, dash="dot"),
-        marker=dict(size=7, color=TARGET_COLOR, line=dict(width=1, color="white")),
+        line=dict(color=TARGET_COLOR, width=2, dash="dot"),
+        marker=dict(size=5, color=TARGET_COLOR, line=dict(width=1, color="white")),
         text=agg["Target"].apply(lambda v: fmt(v, currency)), textposition="top center",
-        textfont=dict(size=10, color=TARGET_COLOR),
+        textfont=dict(size=9, color=TARGET_COLOR),
     ))
     # Total annotations on top of each bar
-    for i, (x_val, total, ach) in enumerate(zip(agg[group_col], totals, achievement)):
+    for x_val, total, ach in zip(agg[group_col], totals, achievement):
+        if pd.isna(x_val) or pd.isna(total):
+            continue
         hit = "✅" if ach >= 100 else "⚠️" if ach >= 80 else "❌"
         fig.add_annotation(
             x=x_val, y=total,
             text=f"<b>{fmt(convert(total, currency), currency)}</b><br>{hit} {ach:.0f}%",
-            showarrow=False, yshift=25,
-            font=dict(size=11, color="#37474F"),
+            showarrow=False, yshift=20,
+            font=dict(size=9, color="#37474F"),
             align="center",
         )
     _base_layout(fig, height)
-    fig.update_layout(barmode="stack", margin=dict(t=80))
+    fig.update_layout(barmode="stack", margin=dict(t=65))
     return fig
 
 # ─────────────────────────────────────────────
@@ -633,37 +643,89 @@ def premium_chart(agg, group_col, title, currency, height=320):
 if page == "🌍 Overall Product (World)":
     st.title("🌍 Overall Product Performance — Worldwide")
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Contracts", f"{len(df_filtered):,}")
-    col2.metric("Total Premium", fmt(convert(df_filtered['Annual Premium'].sum(), cur), cur))
-    col3.metric("Total Paid", fmt(convert(df_filtered['Paid'].sum(), cur), cur))
-    col4.metric("Outstanding", fmt(convert(df_filtered['Outstanding'].sum(), cur), cur))
+    render_comparison_metrics(df_filtered, d_start, d_end, cur)
     st.markdown("---")
 
-    # Contracts by product
-    pc = df_filtered.groupby("Product Label")["Contract ID"].count().reset_index()
-    pc.columns = ["Product", "Contracts"]
-    st.plotly_chart(bar_chart(pc, "Product", "Contracts", "Contract Count by Product"), use_container_width=True)
+    # Two charts side by side
+    c1, c2 = st.columns(2)
+    with c1:
+        pc = df_filtered.groupby("Product Label")["Contract ID"].count().reset_index()
+        pc.columns = ["Product", "Contracts"]
+        st.plotly_chart(bar_chart(pc, "Product", "Contracts", "Contract Count by Product"), use_container_width=True)
+    with c2:
+        agg = make_summary(df_filtered, "Product Label")
+        agg.rename(columns={"Product Label": "Product"}, inplace=True)
+        agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
+        st.plotly_chart(premium_chart(agg, "Product", f"Premium Breakdown ({cur})", cur), use_container_width=True)
 
-    # Premium by product (stacked paid + outstanding, target line)
-    agg = make_summary(df_filtered, "Product Label")
-    agg.rename(columns={"Product Label": "Product"}, inplace=True)
-    agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-    st.plotly_chart(premium_chart(agg, "Product", f"Premium Breakdown by Product ({cur})", cur), use_container_width=True)
+    # By Product + Region side by side
+    st.subheader("By Region")
+    for i in range(0, len(REGIONS), 2):
+        cols = st.columns(2)
+        for j, col in enumerate(cols):
+            if i + j >= len(REGIONS):
+                break
+            region = REGIONS[i + j]
+            with col:
+                pr2 = df_filtered[df_filtered["Region"] == region].groupby("Product Label").agg(
+                    Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
+                ).reset_index()
+                pr2.rename(columns={"Product Label": "Product"}, inplace=True)
+                pr2 = convert_cols(pr2, ["Paid", "Outstanding", "Target"], cur)
+                st.plotly_chart(premium_chart(pr2, "Product", f"{region} ({cur})", cur), use_container_width=True)
 
-    # Contracts by Product + Region
-    pr = df_filtered.groupby(["Product Label", "Region"])["Contract ID"].count().reset_index()
-    pr.columns = ["Product", "Region", "Contracts"]
-    st.plotly_chart(bar_chart(pr, "Product", "Contracts", "Contract Count by Product & Region", color="Region"), use_container_width=True)
+    # Monthly breakdown
+    st.markdown("---")
+    st.subheader("📈 Monthly Premium Trend")
+    monthly = df_filtered.groupby("YearMonth").agg(
+        Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
+        Contracts=("Contract ID", "count"),
+    ).reset_index().sort_values("YearMonth")
+    monthly = convert_cols(monthly, ["Paid", "Outstanding", "Target"], cur)
+    monthly["Total"] = monthly["Paid"] + monthly["Outstanding"]
 
-    # Premium by Product + Region (stacked paid + outstanding, target line)
-    for region in REGIONS:
-        pr2 = df_filtered[df_filtered["Region"] == region].groupby("Product Label").agg(
-            Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
-        ).reset_index()
-        pr2.rename(columns={"Product Label": "Product"}, inplace=True)
-        pr2 = convert_cols(pr2, ["Paid", "Outstanding", "Target"], cur)
-        st.plotly_chart(premium_chart(pr2, "Product", f"Premium Breakdown — {region} ({cur})", cur), use_container_width=True)
+    fig_m = go.Figure()
+    fig_m.add_trace(go.Bar(
+        x=monthly["YearMonth"], y=monthly["Paid"], name="Paid",
+        marker_color=PAID_COLOR,
+    ))
+    fig_m.add_trace(go.Bar(
+        x=monthly["YearMonth"], y=monthly["Outstanding"], name="Outstanding",
+        marker_color=OUTSTANDING_COLOR,
+    ))
+    fig_m.add_trace(go.Scatter(
+        x=monthly["YearMonth"], y=monthly["Target"], name="Target",
+        line=dict(color=TARGET_COLOR, width=2, dash="dot"),
+        mode="lines",
+    ))
+    fig_m.update_layout(
+        barmode="stack", height=350,
+        plot_bgcolor=BG_COLOR, paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter, sans-serif", color="#37474F", size=11),
+        xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45, tickfont=dict(size=9)),
+        yaxis=dict(gridcolor=GRID_COLOR),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10)),
+        margin=dict(t=40, b=60, l=40, r=10),
+    )
+    st.plotly_chart(fig_m, use_container_width=True)
+
+    # Monthly by product
+    st.subheader("📈 Monthly by Product")
+    mp = df_filtered.groupby(["YearMonth", "Product Label"])["Annual Premium"].sum().reset_index()
+    mp.columns = ["Month", "Product", "Premium"]
+    mp["Premium"] = mp["Premium"].apply(lambda v: convert(v, cur))
+    fig_mp = px.line(mp, x="Month", y="Premium", color="Product",
+                     title=f"Monthly Premium by Product ({cur})",
+                     color_discrete_sequence=PALETTE, markers=True)
+    fig_mp.update_layout(
+        height=300, plot_bgcolor=BG_COLOR, paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter, sans-serif", color="#37474F", size=11),
+        xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45, tickfont=dict(size=9)),
+        yaxis=dict(gridcolor=GRID_COLOR),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10)),
+        margin=dict(t=40, b=60, l=40, r=10),
+    )
+    st.plotly_chart(fig_mp, use_container_width=True)
 
 # ─────────────────────────────────────────────
 # PAGE 2: REGION DRILL DOWN
@@ -676,28 +738,29 @@ elif page == "🗺️ Region Drill Down":
     render_comparison_metrics(rdf, d_start, d_end, cur)
     st.markdown("---")
 
-    # Contracts by Product
-    rp = rdf.groupby("Product Label")["Contract ID"].count().reset_index()
-    rp.columns = ["Product", "Contracts"]
-    st.plotly_chart(bar_chart(rp, "Product", "Contracts", f"Contract Count — {region_sel}"), use_container_width=True)
+    # Charts side by side
+    c1, c2 = st.columns(2)
+    with c1:
+        rp = rdf.groupby("Product Label")["Contract ID"].count().reset_index()
+        rp.columns = ["Product", "Contracts"]
+        st.plotly_chart(bar_chart(rp, "Product", "Contracts", f"Contracts — {region_sel}"), use_container_width=True)
+    with c2:
+        agg = make_summary(rdf, "Product Label")
+        agg.rename(columns={"Product Label": "Product"}, inplace=True)
+        agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
+        st.plotly_chart(premium_chart(agg, "Product", f"Premium — {region_sel} ({cur})", cur), use_container_width=True)
 
-    # Premium by Product (stacked paid + outstanding, target line)
-    agg = make_summary(rdf, "Product Label")
-    agg.rename(columns={"Product Label": "Product"}, inplace=True)
-    agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-    st.plotly_chart(premium_chart(agg, "Product", f"Premium Breakdown — {region_sel} ({cur})", cur), use_container_width=True)
-
-    # Premium by Country (stacked paid + outstanding, target line)
-    rc = rdf.groupby("Country").agg(
-        Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
-    ).reset_index()
-    rc = convert_cols(rc, ["Paid", "Outstanding", "Target"], cur)
-    st.plotly_chart(premium_chart(rc, "Country", f"Premium by Country — {region_sel} ({cur})", cur), use_container_width=True)
-
-    # Contracts by Country + Product
-    cp = rdf.groupby(["Country", "Product Label"])["Contract ID"].count().reset_index()
-    cp.columns = ["Country", "Product", "Contracts"]
-    st.plotly_chart(bar_chart(cp, "Country", "Contracts", f"Contracts by Country & Product — {region_sel}", color="Product"), use_container_width=True)
+    c3, c4 = st.columns(2)
+    with c3:
+        rc = rdf.groupby("Country").agg(
+            Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
+        ).reset_index()
+        rc = convert_cols(rc, ["Paid", "Outstanding", "Target"], cur)
+        st.plotly_chart(premium_chart(rc, "Country", f"Premium by Country ({cur})", cur), use_container_width=True)
+    with c4:
+        cp = rdf.groupby(["Country", "Product Label"])["Contract ID"].count().reset_index()
+        cp.columns = ["Country", "Product", "Contracts"]
+        st.plotly_chart(bar_chart(cp, "Country", "Contracts", f"Contracts by Country & Product", color="Product"), use_container_width=True)
 
     # Drill-down button: navigate to Country Drill Down with region's countries
     region_countries = [c for c, r in COUNTRIES.items() if r == region_sel]
