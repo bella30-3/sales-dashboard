@@ -193,15 +193,18 @@ PRODUCT_LAUNCH = {
 # Per-policy premium range in SGD
 POLICY_PREMIUM_RANGE_SGD = {
     "Income Protection": (100, 450),
-    "EV / Auto": (100, 450),
-    "Care Aqua": (100, 450),
+    "EV / Auto": (200, 400),
+    "Care Aqua": (1800, 2200),
 }
 
-# Max policies per month
+# Realistic monthly contract counts per plan
+# IPI: ~500 OCBC lives/mo + ~50 DBS lives/mo = ~550/mo total → ~90/plan/mo
+# EV: ~100 contracts/mo → ~33/plan/mo
+# Airspring: ~40 devices/mo (2000 SGD each)
 MONTHLY_POLICY_COUNTS = {
-    "Income Protection": 300,
-    "EV / Auto": 300,
-    "Care Aqua": 300,
+    "Income Protection": 90,
+    "EV / Auto": 33,
+    "Care Aqua": 40,
 }
 
 SGD_TO_USD = 1.35
@@ -220,20 +223,16 @@ IPI_PLANS = {
 }
 
 def _random_n_contracts(target_n, prod):
-    """Return a random policy count with wild variance.
-    Sometimes as low as 5, sometimes 2-3x the target.
-    """
+    """Return a random policy count with moderate variance (±40%)."""
     r = random.random()
-    if r < 0.06:       # 6% chance: dead month (5-30 policies)
-        return random.randint(5, 30)
-    elif r < 0.15:     # 9% chance: slow month
-        return max(5, int(target_n * random.uniform(0.15, 0.4)))
-    elif r < 0.35:     # 20% chance: below average
-        return max(10, int(target_n * random.uniform(0.4, 0.75)))
-    elif r < 0.75:     # 40% chance: around average
-        return int(target_n * random.uniform(0.75, 1.25))
-    elif r < 0.92:     # 17% chance: good month
-        return int(target_n * random.uniform(1.25, 2.0))
+    if r < 0.08:       # 8% chance: slow month
+        return max(3, int(target_n * random.uniform(0.4, 0.7)))
+    elif r < 0.30:     # 22% chance: below average
+        return max(5, int(target_n * random.uniform(0.7, 0.9)))
+    elif r < 0.75:     # 45% chance: around average
+        return int(target_n * random.uniform(0.9, 1.1))
+    elif r < 0.95:     # 20% chance: good month
+        return int(target_n * random.uniform(1.1, 1.4))
     else:              # 8% chance: blowout month
         return int(target_n * random.uniform(2.0, 3.5))
 
@@ -279,9 +278,6 @@ def generate_data():
             for i in range(n_policies):
                 # Each policy: random premium in range
                 premium_sgd = random.uniform(premium_lo, premium_hi)
-                # Occasional larger policies (corporate plans)
-                if random.random() < 0.08:
-                    premium_sgd = random.uniform(450, 1200)
                 premium = round(premium_sgd / SGD_TO_USD)  # convert to USD
 
                 # Country distribution
