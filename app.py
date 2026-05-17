@@ -348,7 +348,7 @@ def generate_data():
                     insurer = plan_info.get("insurer", "Unknown")
                     sum_insured = plan_info.get("sum_insured", random.randint(2000, 200000))
                     renewed = random.random() < (0.85 if ipi_type == "Corporate" else 0.65)
-                    lives = random.randint(5, 500) if ipi_type == "Corporate" else 1
+                    lives = random.randint(1, 3) if ipi_type == "Corporate" else 1
                     row.update({
                         "Insurer": insurer,
                         "Sum Insured": sum_insured,
