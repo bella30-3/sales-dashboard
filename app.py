@@ -146,8 +146,8 @@ REGIONS = ["Asia", "Europe"]
 CLIENTS_BY_PRODUCT_COUNTRY = {
     "EV / Auto": {
         "India": ["Mahindra Trucks and Buses (MTB)"],
-        "Singapore": ["Cycle and Carriage", "Porsche", "BYD"],
-        "Thailand": ["Porsche", "BYD Forklift", "Subaru", "Hyundai"],
+        "Singapore": ["Cycle and Carriage", "BYD"],
+        "Thailand": ["BYD", "Porsche", "Subaru"],
     },
     "Income Protection": {
         "India": ["Raheja (RQBE)"],
@@ -155,9 +155,9 @@ CLIENTS_BY_PRODUCT_COUNTRY = {
         "Thailand": ["Muang Thai"],
     },
     "Care Aqua": {
-        "India": [],
-        "Singapore": [],
-        "Thailand": [],
+        "India": ["Airspring India"],
+        "Singapore": ["Airspring SG"],
+        "Thailand": ["Airspring TH"],
         "Europe": ["Airspring"],
     },
 }
@@ -165,6 +165,17 @@ CLIENTS_BY_PRODUCT_COUNTRY = {
 CLIENTS = list(set(c for p in CLIENTS_BY_PRODUCT_COUNTRY.values() for cs in p.values() for c in cs))
 TYPES = ["Individual", "Corporate"]
 TRAN_TYPES = ["Inst", "Single"]
+
+# Client launch dates (for staggered client entries)
+CLIENT_LAUNCH_DATES = {
+    "EV / Auto": {
+        "Thailand": {
+            "BYD": datetime(2024, 7, 1),
+            "Porsche": datetime(2025, 1, 1),
+            "Subaru": datetime(2026, 1, 1),
+        },
+    },
+}
 
 
 def get_plan_premium(prod, plan):
@@ -175,11 +186,15 @@ def get_plan_type(prod, plan):
     types = PRODUCTS.get(prod, {}).get("types", {})
     return types.get(plan)
 
-def get_client(product, country):
+def get_client(product, country, current_date=None):
     clients = CLIENTS_BY_PRODUCT_COUNTRY.get(product, {}).get(country, [])
     if not clients:
         all_pc = CLIENTS_BY_PRODUCT_COUNTRY.get(product, {})
         clients = [c for cs in all_pc.values() for c in cs]
+    # Filter by client launch date if applicable
+    if current_date and product in CLIENT_LAUNCH_DATES and country in CLIENT_LAUNCH_DATES[product]:
+        launch_dates = CLIENT_LAUNCH_DATES[product][country]
+        clients = [c for c in clients if c not in launch_dates or current_date >= launch_dates[c]]
     return random.choice(clients) if clients else "Unknown"
 
 # Product launch dates
@@ -293,7 +308,7 @@ def generate_data():
                 plan = random.choice(PRODUCTS[prod]["plans"].get(country, PRODUCTS[prod]["plans"][list(PRODUCTS[prod]["plans"].keys())[0]]))
                 plan_type = get_plan_type(prod, plan)
                 ctype = plan_type if plan_type else random.choice(TYPES)
-                client = get_client(prod, country)
+                client = get_client(prod, country, current)
                 trantype = random.choice(TRAN_TYPES)
 
                 paid_pct = random.uniform(0.3, 1.0)
