@@ -147,7 +147,7 @@ CLIENTS_BY_PRODUCT_COUNTRY = {
     "EV / Auto": {
         "India": ["Mahindra Trucks and Buses (MTB)"],
         "Singapore": ["Cycle and Carriage", "BYD"],
-        "Thailand": ["BYD", "Porsche", "Subaru"],
+        "Thailand": ["BYD", "Porsche", "Subaru", "Hyundai", "BYD Forklift"],
     },
     "Income Protection": {
         "India": ["Raheja (RQBE)"],
@@ -155,9 +155,6 @@ CLIENTS_BY_PRODUCT_COUNTRY = {
         "Thailand": ["Muang Thai"],
     },
     "Care Aqua": {
-        "India": ["Airspring India"],
-        "Singapore": ["Airspring SG"],
-        "Thailand": ["Airspring TH"],
         "Europe": ["Airspring"],
     },
 }
@@ -173,6 +170,8 @@ CLIENT_LAUNCH_DATES = {
             "BYD": datetime(2024, 7, 1),
             "Porsche": datetime(2025, 1, 1),
             "Subaru": datetime(2026, 1, 1),
+            "Hyundai": datetime(2099, 1, 1),  # Not yet active
+            "BYD Forklift": datetime(2099, 1, 1),  # Not yet active
         },
     },
 }
@@ -297,10 +296,7 @@ def generate_data():
 
                 # Country distribution
                 if prod == "Care Aqua":
-                    if random.random() < 0.15:
-                        country = "Europe"
-                    else:
-                        country = random.choice(["India", "Singapore", "Thailand"])
+                    country = "Europe"  # Aqua only sold in Europe
                 else:
                     country = random.choice([c for c in COUNTRIES.keys() if c != "Europe"])
                 region = COUNTRIES[country]
