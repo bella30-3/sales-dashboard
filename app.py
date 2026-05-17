@@ -403,7 +403,73 @@ else:
 df_filtered = df[(pd.to_datetime(df["Start Date"]).dt.date >= d_start) &
                   (pd.to_datetime(df["Start Date"]).dt.date <= d_end)]
 
+# Comparison selector
+st.sidebar.markdown("### 🔄 Compare With")
+compare_mode = st.sidebar.selectbox(
+    "Comparison period",
+    ["None", "Previous Year", "Previous Quarter", "Previous Month"],
+    index=0,
+    key="compare_mode",
+)
+
+# Auto-adjust date range for quarter/month comparisons and compute comparison dates
+now = datetime.now()
+if compare_mode == "Previous Quarter":
+    # Snap to current quarter
+    q = (d_start.month - 1) // 3 + 1
+    q_start_month = (q - 1) * 3 + 1
+    d_start = datetime(d_start.year, q_start_month, 1).date()
+    q_end_month = q_start_month + 2
+    q_end_day = 28 if q_end_month == 2 else (30 if q_end_month in (4, 6, 9, 11) else 31)
+    d_end = datetime(d_start.year, q_end_month, q_end_day).date()
+    # Previous quarter
+    if q == 1:
+        cmp_start = datetime(d_start.year - 1, 10, 1).date()
+        cmp_end = datetime(d_start.year - 1, 12, 31).date()
+    else:
+        cmp_s_month = (q - 2) * 3 + 1
+        cmp_start = datetime(d_start.year, cmp_s_month, 1).date()
+        cmp_e_month = cmp_s_month + 2
+        cmp_e_day = 28 if cmp_e_month == 2 else (30 if cmp_e_month in (4, 6, 9, 11) else 31)
+        cmp_end = datetime(d_start.year, cmp_e_month, cmp_e_day).date()
+    cmp_label = "Prev Quarter"
+elif compare_mode == "Previous Month":
+    # Snap to current month
+    d_start = datetime(d_start.year, d_start.month, 1).date()
+    last_day = 28 if d_start.month == 2 else (30 if d_start.month in (4, 6, 9, 11) else 31)
+    d_end = datetime(d_start.year, d_start.month, last_day).date()
+    # Previous month
+    if d_start.month == 1:
+        cmp_start = datetime(d_start.year - 1, 12, 1).date()
+        cmp_end = datetime(d_start.year - 1, 12, 31).date()
+    else:
+        cmp_start = datetime(d_start.year, d_start.month - 1, 1).date()
+        cmp_e_day = 28 if d_start.month - 1 == 2 else (30 if d_start.month - 1 in (4, 6, 9, 11) else 31)
+        cmp_end = datetime(d_start.year, d_start.month - 1, cmp_e_day).date()
+    cmp_label = "Prev Month"
+elif compare_mode == "Previous Year":
+    cmp_start = datetime(d_start.year - 1, d_start.month, d_start.day).date()
+    cmp_end = datetime(d_end.year - 1, d_end.month, d_end.day).date()
+    cmp_label = "Prev Year"
+else:
+    cmp_start = None
+    cmp_end = None
+    cmp_label = ""
+
+# Re-filter with possibly adjusted dates
+df_filtered = df[(pd.to_datetime(df["Start Date"]).dt.date >= d_start) &
+                  (pd.to_datetime(df["Start Date"]).dt.date <= d_end)]
+
+# Comparison data
+cmp_filtered = None
+if compare_mode != "None" and cmp_start and cmp_end:
+    cmp_filtered = df[(pd.to_datetime(df["Start Date"]).dt.date >= cmp_start) &
+                       (pd.to_datetime(df["Start Date"]).dt.date <= cmp_end)]
+
 st.sidebar.markdown("---")
+st.sidebar.caption(f"Period: **{d_start}** → **{d_end}**")
+if cmp_filtered is not None:
+    st.sidebar.caption(f"Compare: **{cmp_start}** → **{cmp_end}**")
 
 PAGES = [
     "🌍 Overall Product (World)",
@@ -420,9 +486,8 @@ nav_idx = PAGES.index(nav) if nav in PAGES else 0
 page = st.sidebar.radio("Navigate", PAGES, index=nav_idx)
 
 st.sidebar.markdown("---")
-st.sidebar.caption(f"Contracts (filtered): **{len(df_filtered):,}**")
+st.sidebar.caption(f"Contracts: **{len(df_filtered):,}**")
 st.sidebar.caption(f"Premium: **{fmt(convert(df_filtered['Annual Premium'].sum(), cur), cur)}**")
-st.sidebar.caption(f"Period: **{d_start}** → **{d_end}**")
 
 # ─────────────────────────────────────────────
 # THEME — Cute Futuristic Blue
@@ -489,101 +554,13 @@ def convert_cols(agg, cols, currency):
 # COMPARISON HELPERS
 # ─────────────────────────────────────────────
 
-def _quarter(d):
-    return (d.month - 1) // 3 + 1
-
-def get_comparison_periods(d_start, d_end):
-    """Return dict of comparison period labels → (start, end) date tuples."""
-    periods = {}
-    # Previous Financial Year (Apr–Mar)
-    # Current FY: if month >= 4 then FY starts this year Apr, else last year Apr
-    fy_start_year = d_start.year if d_start.month >= 4 else d_start.year - 1
-    prev_fy_start = datetime(fy_start_year - 1, 4, 1).date()
-    prev_fy_end = datetime(fy_start_year, 3, 31).date()
-    periods["vs Prev FY"] = (prev_fy_start, prev_fy_end)
-
-    # Same Quarter, Previous Year
-    q = _quarter(d_start)
-    q_start_month = (q - 1) * 3 + 1
-    sqpy_start = datetime(d_start.year - 1, q_start_month, 1).date()
-    sqpy_end_month = q_start_month + 2
-    sqpy_end_day = 28 if sqpy_end_month == 2 else (30 if sqpy_end_month in (4, 6, 9, 11) else 31)
-    sqpy_end = datetime(d_start.year - 1, sqpy_end_month, sqpy_end_day).date()
-    periods["vs Same Q Last Yr"] = (sqpy_start, sqpy_end)
-
-    # Previous Quarter, Same Year
-    if q == 1:
-        pq_start = datetime(d_start.year - 1, 10, 1).date()
-        pq_end = datetime(d_start.year - 1, 12, 31).date()
-    else:
-        pq_start_month = (q - 2) * 3 + 1
-        pq_start = datetime(d_start.year, pq_start_month, 1).date()
-        pq_end_month = pq_start_month + 2
-        pq_end_day = 28 if pq_end_month == 2 else (30 if pq_end_month in (4, 6, 9, 11) else 31)
-        pq_end = datetime(d_start.year, pq_end_month, pq_end_day).date()
-    periods["vs Prev Qtr"] = (pq_start, pq_end)
-
-    # Previous Month
-    if d_start.month == 1:
-        pm_start = datetime(d_start.year - 1, 12, 1).date()
-        pm_end = datetime(d_start.year - 1, 12, 31).date()
-    else:
-        pm_start = datetime(d_start.year, d_start.month - 1, 1).date()
-        pm_day = 28 if d_start.month - 1 == 2 else (30 if d_start.month - 1 in (4, 6, 9, 11) else 31)
-        pm_end = datetime(d_start.year, d_start.month - 1, pm_day).date()
-    periods["vs Last Month"] = (pm_start, pm_end)
-
-    return periods
-
-def compute_period_metrics(df_in, start, end):
-    """Compute aggregate metrics for a date range."""
-    mask = (pd.to_datetime(df_in["Start Date"]).dt.date >= start) & \
-           (pd.to_datetime(df_in["Start Date"]).dt.date <= end)
-    sub = df_in[mask]
-    return {
-        "premium": sub["Annual Premium"].sum(),
-        "paid": sub["Paid"].sum(),
-        "outstanding": sub["Outstanding"].sum(),
-        "target": sub["Target"].sum(),
-        "contracts": len(sub),
-    }
-
-def render_comparison_metrics(df_in, d_start, d_end, cur, prefix=""):
-    """Render current period metrics with comparison deltas."""
-    current = compute_period_metrics(df_in, d_start, d_end)
-    comparisons = get_comparison_periods(d_start, d_end)
-
-    # Build delta values
-    deltas = {}
-    for label, (s, e) in comparisons.items():
-        comp = compute_period_metrics(df_in, s, e)
-        if comp["premium"] > 0:
-            pct = ((current["premium"] - comp["premium"]) / comp["premium"]) * 100
-            deltas[label] = pct
-        else:
-            deltas[label] = None
-
-    # Render
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric(f"{prefix}Contracts", f"{current['contracts']:,}")
-
-    # Premium with deltas
-    premium_str = fmt(convert(current["premium"], cur), cur)
-    c2.metric(f"{prefix}Total Premium", premium_str)
-
-    c3.metric(f"{prefix}Paid", fmt(convert(current["paid"], cur), cur))
-    c4.metric(f"{prefix}Outstanding", fmt(convert(current["outstanding"], cur), cur))
-
-    # Comparison table
-    if deltas:
-        st.markdown("**📊 Comparisons**")
-        comp_cols = st.columns(len(deltas))
-        for i, (label, pct) in enumerate(deltas.items()):
-            if pct is not None:
-                arrow = "🟢" if pct >= 0 else "🔴"
-                comp_cols[i].metric(label, f"{pct:+.1f}%", delta_color="normal")
-            else:
-                comp_cols[i].metric(label, "N/A")
+def make_compare_summary(df_curr, df_cmp, group_col):
+    """Build a merged summary with Current and Comparison period values."""
+    curr = make_summary(df_curr, group_col)
+    cmp = make_summary(df_cmp, group_col)
+    merged = curr.merge(cmp, on=group_col, how="outer", suffixes=("", "_cmp"))
+    merged = merged.fillna(0)
+    return merged
 
 def premium_chart(agg, group_col, title, currency, height=280):
     """Stacked bar chart: Paid + Outstanding stacked, Target as a line cutting through.
@@ -639,13 +616,101 @@ def premium_chart(agg, group_col, title, currency, height=280):
     fig.update_layout(barmode="stack", margin=dict(t=65))
     return fig
 
+def premium_chart_compare(merged, group_col, title, currency, cmp_label="Comparison", height=300):
+    """Grouped bar chart: Current vs Comparison period, with Target line.
+    merged must have: Paid, Outstanding, Target, Paid_cmp, Outstanding_cmp, Target_cmp
+    """
+    title = title or ""
+    merged = merged.dropna(subset=[group_col]).copy()
+    if merged.empty:
+        return go.Figure()
+
+    fig = go.Figure()
+    # Current period - stacked
+    fig.add_trace(go.Bar(
+        x=merged[group_col], y=merged["Paid"], name="Paid (Current)",
+        marker_color=PAID_COLOR, marker_line=dict(width=0),
+        text=merged["Paid"].apply(lambda v: fmt(v, currency)),
+        textposition="inside", textfont=dict(size=8, color="white"),
+    ))
+    fig.add_trace(go.Bar(
+        x=merged[group_col], y=merged["Outstanding"], name="Outstanding (Current)",
+        marker_color=OUTSTANDING_COLOR, marker_line=dict(width=0),
+        text=merged["Outstanding"].apply(lambda v: fmt(v, currency)),
+        textposition="inside", textfont=dict(size=8, color="white"),
+    ))
+    # Comparison period - lighter/muted colors
+    fig.add_trace(go.Bar(
+        x=merged[group_col], y=merged["Paid_cmp"], name=f"Paid ({cmp_label})",
+        marker_color="rgba(79, 195, 247, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
+        text=merged["Paid_cmp"].apply(lambda v: fmt(v, currency)),
+        textposition="inside", textfont=dict(size=8, color="#37474F"),
+    ))
+    fig.add_trace(go.Bar(
+        x=merged[group_col], y=merged["Outstanding_cmp"], name=f"Outstanding ({cmp_label})",
+        marker_color="rgba(206, 147, 216, 0.35)", marker_line=dict(width=1, color=OUTSTANDING_COLOR),
+        text=merged["Outstanding_cmp"].apply(lambda v: fmt(v, currency)),
+        textposition="inside", textfont=dict(size=8, color="#37474F"),
+    ))
+    # Target lines
+    fig.add_trace(go.Scatter(
+        x=merged[group_col], y=merged["Target"], name="Target (Current)",
+        line=dict(color=TARGET_COLOR, width=2, dash="dot"),
+        mode="lines+markers", marker=dict(size=5, color=TARGET_COLOR),
+    ))
+    fig.add_trace(go.Scatter(
+        x=merged[group_col], y=merged["Target_cmp"], name=f"Target ({cmp_label})",
+        line=dict(color="rgba(244, 143, 177, 0.5)", width=1.5, dash="dot"),
+        mode="lines+markers", marker=dict(size=4, color="rgba(244, 143, 177, 0.5)"),
+    ))
+    _base_layout(fig, height)
+    fig.update_layout(barmode="group", margin=dict(t=50))
+    return fig
+
+def bar_chart_compare(merged, group_col, y_curr, y_cmp, title, currency, cmp_label="Comparison", height=280):
+    """Simple grouped bar: current vs comparison for a single metric."""
+    title = title or ""
+    merged = merged.dropna(subset=[group_col]).copy()
+    if merged.empty:
+        return go.Figure()
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=merged[group_col], y=merged[y_curr], name="Current",
+        marker_color=PAID_COLOR, text=merged[y_curr].apply(lambda v: fmt(v, currency)),
+        textposition="outside", textfont=dict(size=9),
+    ))
+    fig.add_trace(go.Bar(
+        x=merged[group_col], y=merged[y_cmp], name=cmp_label,
+        marker_color="rgba(79, 195, 247, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
+        text=merged[y_cmp].apply(lambda v: fmt(v, currency)),
+        textposition="outside", textfont=dict(size=9),
+    ))
+    _base_layout(fig, height)
+    fig.update_layout(barmode="group", margin=dict(t=50))
+    return fig
+
+def render_metrics(df_curr, df_cmp, cur, cmp_label=""):
+    """Render metric cards. If comparison data exists, show deltas."""
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Contracts", f"{len(df_curr):,}")
+    c2.metric("Total Premium", fmt(convert(df_curr['Annual Premium'].sum(), cur), cur))
+    c3.metric("Paid", fmt(convert(df_curr['Paid'].sum(), cur), cur))
+    c4.metric("Outstanding", fmt(convert(df_curr['Outstanding'].sum(), cur), cur))
+    if df_cmp is not None and len(df_cmp) > 0:
+        curr_total = df_curr['Annual Premium'].sum()
+        cmp_total = df_cmp['Annual Premium'].sum()
+        if cmp_total > 0:
+            pct = ((curr_total - cmp_total) / cmp_total) * 100
+            arrow = "🟢" if pct >= 0 else "🔴"
+            st.caption(f"{arrow} Premium vs {cmp_label}: **{pct:+.1f}%** | Contracts: {len(df_cmp):,} | Premium: {fmt(convert(cmp_total, cur), cur)}")
+
 # ─────────────────────────────────────────────
 # PAGE 1: OVERALL PRODUCT (WORLD)
 # ─────────────────────────────────────────────
 if page == "🌍 Overall Product (World)":
     st.title("🌍 Overall Product Performance — Worldwide")
 
-    render_comparison_metrics(df_filtered, d_start, d_end, cur)
+    render_metrics(df_filtered, cmp_filtered, cur, cmp_label)
     st.markdown("---")
 
     # Two charts side by side
@@ -655,10 +720,16 @@ if page == "🌍 Overall Product (World)":
         pc.columns = ["Product", "Contracts"]
         st.plotly_chart(bar_chart(pc, "Product", "Contracts", "Contract Count by Product"), use_container_width=True)
     with c2:
-        agg = make_summary(df_filtered, "Product Label")
-        agg.rename(columns={"Product Label": "Product"}, inplace=True)
-        agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-        st.plotly_chart(premium_chart(agg, "Product", f"Premium Breakdown ({cur})", cur), use_container_width=True)
+        if cmp_filtered is not None:
+            merged = make_compare_summary(df_filtered, cmp_filtered, "Product Label")
+            merged.rename(columns={"Product Label": "Product"}, inplace=True)
+            merged = convert_cols(merged, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
+            st.plotly_chart(premium_chart_compare(merged, "Product", f"Premium ({cur}) — Current vs {cmp_label}", cur, cmp_label), use_container_width=True)
+        else:
+            agg = make_summary(df_filtered, "Product Label")
+            agg.rename(columns={"Product Label": "Product"}, inplace=True)
+            agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
+            st.plotly_chart(premium_chart(agg, "Product", f"Premium Breakdown ({cur})", cur), use_container_width=True)
 
     # By Product + Region side by side
     st.subheader("By Region")
@@ -669,12 +740,20 @@ if page == "🌍 Overall Product (World)":
                 break
             region = REGIONS[i + j]
             with col:
-                pr2 = df_filtered[df_filtered["Region"] == region].groupby("Product Label").agg(
-                    Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
-                ).reset_index()
-                pr2.rename(columns={"Product Label": "Product"}, inplace=True)
-                pr2 = convert_cols(pr2, ["Paid", "Outstanding", "Target"], cur)
-                st.plotly_chart(premium_chart(pr2, "Product", f"{region} ({cur})", cur), use_container_width=True)
+                r_curr = df_filtered[df_filtered["Region"] == region]
+                if cmp_filtered is not None:
+                    r_cmp = cmp_filtered[cmp_filtered["Region"] == region]
+                    merged = make_compare_summary(r_curr, r_cmp, "Product Label")
+                    merged.rename(columns={"Product Label": "Product"}, inplace=True)
+                    merged = convert_cols(merged, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
+                    st.plotly_chart(premium_chart_compare(merged, "Product", f"{region} ({cur}) — vs {cmp_label}", cur, cmp_label), use_container_width=True)
+                else:
+                    pr2 = r_curr.groupby("Product Label").agg(
+                        Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
+                    ).reset_index()
+                    pr2.rename(columns={"Product Label": "Product"}, inplace=True)
+                    pr2 = convert_cols(pr2, ["Paid", "Outstanding", "Target"], cur)
+                    st.plotly_chart(premium_chart(pr2, "Product", f"{region} ({cur})", cur), use_container_width=True)
 
     # Monthly breakdown
     st.markdown("---")
@@ -736,8 +815,9 @@ elif page == "🗺️ Region Drill Down":
     st.title("🗺️ Region Drill Down")
     region_sel = st.selectbox("Select Region", REGIONS)
     rdf = df_filtered[df_filtered["Region"] == region_sel]
+    r_cmp = cmp_filtered[cmp_filtered["Region"] == region_sel] if cmp_filtered is not None else None
 
-    render_comparison_metrics(rdf, d_start, d_end, cur)
+    render_metrics(rdf, r_cmp, cur, cmp_label)
     st.markdown("---")
 
     # Charts side by side
@@ -747,18 +827,29 @@ elif page == "🗺️ Region Drill Down":
         rp.columns = ["Product", "Contracts"]
         st.plotly_chart(bar_chart(rp, "Product", "Contracts", f"Contracts — {region_sel}"), use_container_width=True)
     with c2:
-        agg = make_summary(rdf, "Product Label")
-        agg.rename(columns={"Product Label": "Product"}, inplace=True)
-        agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-        st.plotly_chart(premium_chart(agg, "Product", f"Premium — {region_sel} ({cur})", cur), use_container_width=True)
+        if r_cmp is not None and len(r_cmp) > 0:
+            merged = make_compare_summary(rdf, r_cmp, "Product Label")
+            merged.rename(columns={"Product Label": "Product"}, inplace=True)
+            merged = convert_cols(merged, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
+            st.plotly_chart(premium_chart_compare(merged, "Product", f"Premium — {region_sel} ({cur}) vs {cmp_label}", cur, cmp_label), use_container_width=True)
+        else:
+            agg = make_summary(rdf, "Product Label")
+            agg.rename(columns={"Product Label": "Product"}, inplace=True)
+            agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
+            st.plotly_chart(premium_chart(agg, "Product", f"Premium — {region_sel} ({cur})", cur), use_container_width=True)
 
     c3, c4 = st.columns(2)
     with c3:
-        rc = rdf.groupby("Country").agg(
-            Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
-        ).reset_index()
-        rc = convert_cols(rc, ["Paid", "Outstanding", "Target"], cur)
-        st.plotly_chart(premium_chart(rc, "Country", f"Premium by Country ({cur})", cur), use_container_width=True)
+        if r_cmp is not None and len(r_cmp) > 0:
+            merged_c = make_compare_summary(rdf, r_cmp, "Country")
+            merged_c = convert_cols(merged_c, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
+            st.plotly_chart(premium_chart_compare(merged_c, "Country", f"By Country ({cur}) vs {cmp_label}", cur, cmp_label), use_container_width=True)
+        else:
+            rc = rdf.groupby("Country").agg(
+                Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
+            ).reset_index()
+            rc = convert_cols(rc, ["Paid", "Outstanding", "Target"], cur)
+            st.plotly_chart(premium_chart(rc, "Country", f"Premium by Country ({cur})", cur), use_container_width=True)
     with c4:
         cp = rdf.groupby(["Country", "Product Label"])["Contract ID"].count().reset_index()
         cp.columns = ["Country", "Product", "Contracts"]
@@ -787,17 +878,26 @@ elif page == "🏳️ Country Drill Down":
     tab1, tab2 = st.tabs(["📊 All Products", "📋 Plan Level"])
 
     with tab1:
-        render_comparison_metrics(cdf, d_start, d_end, cur)
+        cc_cmp = cmp_filtered[cmp_filtered["Country"].isin(countries_sel)] if cmp_filtered is not None else None
+        render_metrics(cdf, cc_cmp, cur, cmp_label)
         st.markdown("---")
 
-        cp = cdf.groupby("Product Label")["Contract ID"].count().reset_index()
-        cp.columns = ["Product", "Contracts"]
-        st.plotly_chart(bar_chart(cp, "Product", "Contracts", f"Contracts by Product — {sel_label}"), use_container_width=True)
-
-        agg = make_summary(cdf, "Product Label")
-        agg.rename(columns={"Product Label": "Product"}, inplace=True)
-        agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-        st.plotly_chart(premium_chart(agg, "Product", f"Premium Breakdown — {sel_label} ({cur})", cur), use_container_width=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            cp = cdf.groupby("Product Label")["Contract ID"].count().reset_index()
+            cp.columns = ["Product", "Contracts"]
+            st.plotly_chart(bar_chart(cp, "Product", "Contracts", f"Contracts — {sel_label}"), use_container_width=True)
+        with c2:
+            if cc_cmp is not None and len(cc_cmp) > 0:
+                merged = make_compare_summary(cdf, cc_cmp, "Product Label")
+                merged.rename(columns={"Product Label": "Product"}, inplace=True)
+                merged = convert_cols(merged, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
+                st.plotly_chart(premium_chart_compare(merged, "Product", f"Premium — {sel_label} ({cur}) vs {cmp_label}", cur, cmp_label), use_container_width=True)
+            else:
+                agg = make_summary(cdf, "Product Label")
+                agg.rename(columns={"Product Label": "Product"}, inplace=True)
+                agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
+                st.plotly_chart(premium_chart(agg, "Product", f"Premium — {sel_label} ({cur})", cur), use_container_width=True)
 
         cl = cdf.groupby("Client").agg(Contracts=("Contract ID", "count"), Total_Premium=("Annual Premium", "sum")).reset_index()
         cl = convert_cols(cl, ["Total_Premium"], cur)
@@ -833,17 +933,28 @@ elif page == "📦 Product Drill Down":
     with tab1:
         st.subheader(f"{PRODUCTS[prod_sel]['label']} — India & Singapore")
         isdf = pdf[pdf["Country"].isin(["India", "Singapore"])]
+        if cmp_filtered is not None:
+            is_cmp = cmp_filtered[(cmp_filtered["Product"] == prod_sel) & (cmp_filtered["Country"].isin(["India", "Singapore"]))]
+        else:
+            is_cmp = None
 
-        render_comparison_metrics(isdf, d_start, d_end, cur)
+        render_metrics(isdf, is_cmp, cur, cmp_label)
         st.markdown("---")
 
-        cc = isdf.groupby("Country")["Contract ID"].count().reset_index()
-        cc.columns = ["Country", "Contracts"]
-        st.plotly_chart(bar_chart(cc, "Country", "Contracts", f"Contracts — {prod_sel} (IN & SG)"), use_container_width=True)
-
-        agg = make_summary(isdf, "Country")
-        agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-        st.plotly_chart(premium_chart(agg, "Country", f"Premium — {prod_sel} ({cur})", cur), use_container_width=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            cc = isdf.groupby("Country")["Contract ID"].count().reset_index()
+            cc.columns = ["Country", "Contracts"]
+            st.plotly_chart(bar_chart(cc, "Country", "Contracts", f"Contracts — {prod_sel} (IN & SG)"), use_container_width=True)
+        with c2:
+            if is_cmp is not None and len(is_cmp) > 0:
+                merged = make_compare_summary(isdf, is_cmp, "Country")
+                merged = convert_cols(merged, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
+                st.plotly_chart(premium_chart_compare(merged, "Country", f"Premium — {prod_sel} ({cur}) vs {cmp_label}", cur, cmp_label), use_container_width=True)
+            else:
+                agg = make_summary(isdf, "Country")
+                agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
+                st.plotly_chart(premium_chart(agg, "Country", f"Premium — {prod_sel} ({cur})", cur), use_container_width=True)
 
         cl = isdf.groupby(["Country", "Client"]).agg(Contracts=("Contract ID", "count"), Total_Premium=("Annual Premium", "sum")).reset_index()
         cl = convert_cols(cl, ["Total_Premium"], cur)
