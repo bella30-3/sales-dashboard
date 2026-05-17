@@ -93,9 +93,9 @@ PRODUCTS = {
         "label": "Electric Vehicles / Auto",
         "desc": "Service Contracts & Warranties",
         "plans": {
-            "India": ["Basic", "Premium", "Enterprise"],
-            "Singapore": ["Standard", "Gold", "Platinum"],
-            "Thailand": ["Basic", "Plus", "Premium"],
+            "India": ["EV Warranty"],
+            "Singapore": ["EV Warranty"],
+            "Thailand": ["EV Warranty"],
         },
     },
     "Income Protection": {
@@ -934,58 +934,106 @@ elif page == "📦 Product Drill Down":
     prod_sel = st.selectbox("Select Product", list(PRODUCTS.keys()))
     pdf = df_filtered[df_filtered["Product"] == prod_sel]
 
-    tab1, tab2 = st.tabs(["📊 Country Level (India & Singapore)", "📋 Plan Level"])
-
-    with tab1:
-        st.subheader(f"{PRODUCTS[prod_sel]['label']} — India & Singapore")
-        isdf = pdf[pdf["Country"].isin(["India", "Singapore"])]
-        if cmp_filtered is not None:
-            is_cmp = cmp_filtered[(cmp_filtered["Product"] == prod_sel) & (cmp_filtered["Country"].isin(["India", "Singapore"]))]
-        else:
-            is_cmp = None
-
-        render_metrics(isdf, is_cmp, cur, cmp_label)
+    if pdf.empty:
+        st.warning(f"No data for {prod_sel} in selected period.")
+    else:
+        st.subheader(f"{PRODUCTS[prod_sel]['label']}")
+        render_metrics(pdf, cmp_filtered[cmp_filtered["Product"] == prod_sel] if cmp_filtered is not None else None, cur, cmp_label)
         st.markdown("---")
 
+        # 1. Contracts + Revenue combined (horizontal grouped bar, Country on y-axis)
         c1, c2 = st.columns(2)
         with c1:
-            cc = isdf.groupby("Country")["Contract ID"].count().reset_index()
-            cc.columns = ["Country", "Contracts"]
-            st.plotly_chart(bar_chart(cc, "Country", "Contracts", f"Contracts — {prod_sel} (IN & SG)"), use_container_width=True)
+            cp = pdf.groupby("Country").agg(
+                Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
+            ).reset_index()
+            cp["Revenue"] = cp["Revenue"].apply(lambda v: convert(v, cur))
+            fig_cp = go.Figure()
+            fig_cp.add_trace(go.Bar(
+                y=cp["Country"], x=cp["Contracts"], name="Contracts",
+                orientation="h", marker_color=PAID_COLOR,
+                text=[f"{int(c):,}" for c in cp["Contracts"]],
+                textposition="outside", textfont=dict(size=11),
+                customdata=[fmt(v, cur) for v in cp["Revenue"]],
+                hovertemplate="<b>%{y}</b><br>Contracts: %{x:,}<br>Revenue: %{customdata}<extra></extra>",
+            ))
+            fig_cp.add_trace(go.Bar(
+                y=cp["Country"], x=cp["Revenue"], name=f"Revenue ({cur})",
+                orientation="h", marker_color=OUTSTANDING_COLOR,
+                text=[fmt(v, cur) for v in cp["Revenue"]],
+                textposition="outside", textfont=dict(size=11),
+                hovertemplate="<b>%{y}</b><br>Revenue: %{x}<extra></extra>",
+            ))
+            _base_layout(fig_cp, max(300, len(cp) * 80))
+            fig_cp.update_layout(
+                title=f"Contracts & Revenue — {prod_sel}",
+                barmode="group",
+                xaxis=dict(gridcolor=GRID_COLOR),
+                legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),
+            )
+            st.plotly_chart(fig_cp, use_container_width=True)
+
+        # 2. Plan breakdown (horizontal grouped bar, Plans on y-axis, Paid/Outstanding, Country via color)
         with c2:
-            if is_cmp is not None and len(is_cmp) > 0:
-                merged = make_compare_summary(isdf, is_cmp, "Country")
-                merged = convert_cols(merged, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
-                st.plotly_chart(premium_chart_compare(merged, "Country", f"Premium — {prod_sel} ({cur}) vs {cmp_label}", cur, cmp_label), use_container_width=True)
+            plan_data = pdf.groupby(["Plan", "Country"]).agg(
+                Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"),
+            ).reset_index()
+            plan_data = convert_cols(plan_data, ["Paid", "Outstanding"], cur)
+            if not plan_data.empty:
+                fig_plan = go.Figure()
+                for country in plan_data["Country"].unique():
+                    cdata = plan_data[plan_data["Country"] == country]
+                    fig_plan.add_trace(go.Bar(
+                        y=cdata["Plan"], x=cdata["Paid"], name=f"Paid — {country}",
+                        orientation="h", marker_color=PAID_COLOR,
+                        text=[fmt(v, cur) for v in cdata["Paid"]],
+                        textposition="outside", textfont=dict(size=10),
+                        hovertemplate=f"<b>%{{y}} — {country}</b><br>Paid: %{{x}}<extra></extra>",
+                    ))
+                    fig_plan.add_trace(go.Bar(
+                        y=cdata["Plan"], x=cdata["Outstanding"], name=f"Pending — {country}",
+                        orientation="h", marker_color=OUTSTANDING_COLOR,
+                        text=[fmt(v, cur) for v in cdata["Outstanding"]],
+                        textposition="outside", textfont=dict(size=10),
+                        hovertemplate=f"<b>%{{y}} — {country}</b><br>Pending: %{{x}}<extra></extra>",
+                    ))
+                _base_layout(fig_plan, max(300, len(plan_data["Plan"].unique()) * 100))
+                fig_plan.update_layout(
+                    title=f"Plan Breakdown — {prod_sel} ({cur})",
+                    barmode="group",
+                    xaxis=dict(gridcolor=GRID_COLOR),
+                    legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),
+                )
+                st.plotly_chart(fig_plan, use_container_width=True)
             else:
-                agg = make_summary(isdf, "Country")
-                agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-                st.plotly_chart(premium_chart(agg, "Country", f"Premium — {prod_sel} ({cur})", cur), use_container_width=True)
+                st.info("No plan data available.")
 
-        cl = isdf.groupby(["Country", "Client"]).agg(Contracts=("Contract ID", "count"), Total_Premium=("Annual Premium", "sum")).reset_index()
-        cl = convert_cols(cl, ["Total_Premium"], cur)
-        cl = cl.sort_values("Total_Premium", ascending=False).head(15)
-        st.plotly_chart(bar_chart(cl, "Client", "Total_Premium", f"Top Clients — {prod_sel} ({cur})", color="Country"), use_container_width=True)
-
-    with tab2:
-        st.subheader(f"{PRODUCTS[prod_sel]['label']} — Plan Level")
-        isdf = pdf[pdf["Country"].isin(["India", "Singapore"])]
-        if isdf.empty:
-            st.warning(f"No data for {prod_sel} in India/Singapore")
-        else:
-            for c in ["India", "Singapore"]:
-                cdf_plan = isdf[isdf["Country"] == c]
-                if cdf_plan.empty:
-                    continue
-                agg = cdf_plan.groupby("Plan").agg(
-                    Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
-                ).reset_index()
-                agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-                st.plotly_chart(premium_chart(agg, "Plan", f"Premium by Plan — {prod_sel} ({c}) ({cur})", cur), use_container_width=True)
-
-            cpc = isdf.groupby(["Country", "Plan"])["Contract ID"].count().reset_index()
-            cpc.columns = ["Country", "Plan", "Contracts"]
-            st.plotly_chart(bar_chart(cpc, "Plan", "Contracts", f"Contracts by Plan — {prod_sel}", color="Country"), use_container_width=True)
+        # 3. Top Clients (horizontal bar)
+        st.markdown("---")
+        cl = pdf.groupby(["Country", "Client"]).agg(
+            Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
+        ).reset_index()
+        cl["Revenue"] = cl["Revenue"].apply(lambda v: convert(v, cur))
+        cl = cl.sort_values("Revenue", ascending=False).head(15)
+        fig_cl = go.Figure()
+        for country in cl["Country"].unique():
+            cdata = cl[cl["Country"] == country]
+            fig_cl.add_trace(go.Bar(
+                y=cdata["Client"], x=cdata["Revenue"], name=country,
+                orientation="h",
+                text=[fmt(v, cur) for v in cdata["Revenue"]],
+                textposition="outside", textfont=dict(size=10),
+                customdata=cdata[["Contracts"]].values,
+                hovertemplate=f"<b>%{{y}} — {country}</b><br>Revenue: %{{x}}<br>Contracts: %{{customdata[0]:,}}<extra></extra>",
+            ))
+        _base_layout(fig_cl, max(400, len(cl) * 30))
+        fig_cl.update_layout(
+            title=f"Top Clients — {prod_sel} ({cur})",
+            barmode="group",
+            xaxis=dict(gridcolor=GRID_COLOR),
+            legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
+        )
+        st.plotly_chart(fig_cl, use_container_width=True)
 
 # ─────────────────────────────────────────────
 # PAGE 5: EV WARRANTY ANALYSIS
