@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import random
 from datetime import datetime, timedelta
 import numpy as np
+from currency import convert, fmt, currency_selector
 
 st.set_page_config(page_title="Policy Analysis", layout="wide", initial_sidebar_state="expanded")
 
@@ -106,6 +107,8 @@ ev_df, ipi_df = load_data()
 st.sidebar.title("📋 Policy Analysis")
 st.sidebar.markdown("---")
 
+cur = currency_selector("Display Currency", "pa_currency")
+
 page = st.sidebar.radio("Navigate", [
     "🚗 EV — State of Health",
     "🚗 EV — Age Analysis",
@@ -166,13 +169,15 @@ if page == "🚗 EV — State of Health":
     # Avg premium by health state
     hp = df.groupby("Health State")["Annual Premium"].mean().reset_index()
     hp.columns = ["Health State", "Avg Premium"]
-    fig3 = bar(hp, "Health State", "Avg Premium", "Average Premium by Health State")
+    hp["Avg Premium"] = hp["Avg Premium"].apply(lambda v: convert(v, cur))
+    fig3 = bar(hp, "Health State", "Avg Premium", f"Average Premium by Health State ({cur})")
     st.plotly_chart(fig3, use_container_width=True)
 
     # Claims by health state
     hc_claims = df.groupby("Health State").agg(Claims=("Claims", "sum"), Amount=("Claim Amount", "sum")).reset_index()
+    hc_claims["Amount"] = hc_claims["Amount"].apply(lambda v: convert(v, cur))
     hc_melted = hc_claims.melt(id_vars="Health State", var_name="Metric", value_name="Value")
-    fig4 = bar(hc_melted, "Health State", "Value", "Claims by Health State", color="Metric")
+    fig4 = bar(hc_melted, "Health State", "Value", f"Claims by Health State ({cur})", color="Metric")
     st.plotly_chart(fig4, use_container_width=True)
 
 
@@ -212,13 +217,15 @@ elif page == "🚗 EV — Age Analysis":
     # Avg premium by age
     ap = df.groupby("Age Bracket", observed=True)["Annual Premium"].mean().reset_index()
     ap.columns = ["Age Bracket", "Avg Premium"]
-    fig3 = bar(ap, "Age Bracket", "Avg Premium", "Average Premium by Vehicle Age")
+    ap["Avg Premium"] = ap["Avg Premium"].apply(lambda v: convert(v, cur))
+    fig3 = bar(ap, "Age Bracket", "Avg Premium", f"Average Premium by Vehicle Age ({cur})")
     st.plotly_chart(fig3, use_container_width=True)
 
     # Claims by age
     ac_claims = df.groupby("Age Bracket", observed=True).agg(Claims=("Claims", "sum"), Amount=("Claim Amount", "sum")).reset_index()
+    ac_claims["Amount"] = ac_claims["Amount"].apply(lambda v: convert(v, cur))
     ac_melted = ac_claims.melt(id_vars="Age Bracket", var_name="Metric", value_name="Value")
-    fig4 = bar(ac_melted, "Age Bracket", "Value", "Claims by Vehicle Age", color="Metric")
+    fig4 = bar(ac_melted, "Age Bracket", "Value", f"Claims by Vehicle Age ({cur})", color="Metric")
     st.plotly_chart(fig4, use_container_width=True)
 
 
@@ -256,7 +263,8 @@ elif page == "🚗 EV — KM Analysis":
     # Avg premium by KM
     kp = df.groupby("KM Bracket", observed=True)["Annual Premium"].mean().reset_index()
     kp.columns = ["KM Bracket", "Avg Premium"]
-    fig3 = bar(kp, "KM Bracket", "Avg Premium", "Average Premium by KM Driven")
+    kp["Avg Premium"] = kp["Avg Premium"].apply(lambda v: convert(v, cur))
+    fig3 = bar(kp, "KM Bracket", "Avg Premium", f"Average Premium by KM Driven ({cur})")
     st.plotly_chart(fig3, use_container_width=True)
 
     # Health distribution by KM
@@ -298,7 +306,7 @@ elif page == "🔄 EV — Health vs KM":
 
     # Scatter: KM vs Premium colored by Health
     fig3 = px.scatter(df, x="KM Driven", y="Annual Premium", color="Health State",
-                      title="KM vs Premium by Health State", opacity=0.6,
+                      title=f"KM vs Premium by Health State ({cur})", opacity=0.6,
                       color_discrete_sequence=px.colors.qualitative.Set2)
     fig3.update_layout(height=500, plot_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig3, use_container_width=True)
@@ -306,7 +314,8 @@ elif page == "🔄 EV — Health vs KM":
     # Avg claims by Health + KM
     claims = df.groupby(["KM Bracket", "Health State"], observed=True)["Claim Amount"].mean().reset_index()
     claims.columns = ["KM Bracket", "Health State", "Avg Claim"]
-    fig4 = bar(claims, "KM Bracket", "Avg Claim", "Average Claim Amount by KM & Health", color="Health State")
+    claims["Avg Claim"] = claims["Avg Claim"].apply(lambda v: convert(v, cur))
+    fig4 = bar(claims, "KM Bracket", "Avg Claim", f"Average Claim Amount by KM & Health ({cur})", color="Health State")
     st.plotly_chart(fig4, use_container_width=True)
 
 
@@ -342,7 +351,7 @@ elif page == "🔄 EV — Health vs Age":
 
     # Scatter: Age vs Premium colored by Health
     fig3 = px.scatter(df, x="Vehicle Age (Years)", y="Annual Premium", color="Health State",
-                      title="Vehicle Age vs Premium by Health State", opacity=0.6,
+                      title=f"Vehicle Age vs Premium by Health State ({cur})", opacity=0.6,
                       color_discrete_sequence=px.colors.qualitative.Set2)
     fig3.update_layout(height=500, plot_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig3, use_container_width=True)
@@ -350,7 +359,8 @@ elif page == "🔄 EV — Health vs Age":
     # Avg claims by Health + Age
     claims = df.groupby(["Age Bracket", "Health State"], observed=True)["Claim Amount"].mean().reset_index()
     claims.columns = ["Age Bracket", "Health State", "Avg Claim"]
-    fig4 = bar(claims, "Age Bracket", "Avg Claim", "Average Claim Amount by Age & Health", color="Health State")
+    claims["Avg Claim"] = claims["Avg Claim"].apply(lambda v: convert(v, cur))
+    fig4 = bar(claims, "Age Bracket", "Avg Claim", f"Average Claim Amount by Age & Health ({cur})", color="Health State")
     st.plotly_chart(fig4, use_container_width=True)
 
 
@@ -365,8 +375,8 @@ elif page == "🛡️ IPI — Sum Insured by Plan":
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Policies", f"{len(df):,}")
-    col2.metric("Total Sum Insured", f"${df['Sum Insured'].sum():,.0f}")
-    col3.metric("Avg Sum Insured", f"${df['Sum Insured'].mean():,.0f}")
+    col2.metric("Total Sum Insured", fmt(convert(df['Sum Insured'].sum(), cur), cur))
+    col3.metric("Avg Sum Insured", fmt(convert(df['Sum Insured'].mean(), cur), cur))
 
     st.markdown("---")
 
@@ -375,21 +385,24 @@ elif page == "🛡️ IPI — Sum Insured by Plan":
         Policies=("Policy ID", "count"),
         Sum_Insured=("Sum Insured", "sum"),
     ).reset_index().sort_values("Sum_Insured", ascending=False)
-    fig1 = bar(si, "Plan", "Sum_Insured", "Total Sum Insured by Plan")
+    si["Sum_Insured"] = si["Sum_Insured"].apply(lambda v: convert(v, cur))
+    fig1 = bar(si, "Plan", "Sum_Insured", f"Total Sum Insured by Plan ({cur})")
     st.plotly_chart(fig1, use_container_width=True)
 
     # Sum insured by plan + country
     sic = df.groupby(["Plan", "Country"]).agg(Sum_Insured=("Sum Insured", "sum")).reset_index()
+    sic["Sum_Insured"] = sic["Sum_Insured"].apply(lambda v: convert(v, cur))
     fig2 = px.bar(sic, x="Plan", y="Sum_Insured", color="Country", barmode="group",
-                  title="Sum Insured by Plan & Country", text_auto=".2s",
+                  title=f"Sum Insured by Plan & Country ({cur})", text_auto=".2s",
                   color_discrete_sequence=px.colors.qualitative.Set2)
     fig2.update_layout(height=450, plot_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig2, use_container_width=True)
 
     # Avg sum insured by type (Individual vs Corporate)
-    st = df.groupby("Type")["Sum Insured"].mean().reset_index()
-    st.columns = ["Type", "Avg Sum Insured"]
-    fig3 = bar(st, "Type", "Avg Sum Insured", "Average Sum Insured by Type")
+    typ = df.groupby("Type")["Sum Insured"].mean().reset_index()
+    typ.columns = ["Type", "Avg Sum Insured"]
+    typ["Avg Sum Insured"] = typ["Avg Sum Insured"].apply(lambda v: convert(v, cur))
+    fig3 = bar(typ, "Type", "Avg Sum Insured", f"Average Sum Insured by Type ({cur})")
     st.plotly_chart(fig3, use_container_width=True)
 
     # Policy count by plan
