@@ -815,7 +815,7 @@ if page == "🌍 Executive Summary":
                 mode="lines+markers",
                 line=dict(color=color, width=2.5),
                 marker=dict(size=5, color=color),
-                fill="tozeroy", fillcolor=f"rgba{rgb}(0.08)",
+                fill="tozeroy", fillcolor=f"rgba({rgb[0]},{rgb[1]},{rgb[2]},0.08)",
                 hovertemplate=(
                     f"<b>{prod_name}</b><br>"
                     "Month: %{x}<br>"
