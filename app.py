@@ -751,27 +751,34 @@ if page == "🌍 Executive Summary":
     agg = make_summary(df_filtered, "Product Label")
     agg.rename(columns={"Product Label": "Product"}, inplace=True)
     agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-    st.plotly_chart(premium_chart(agg, "Product", f"Revenue Breakdown — Received vs Pending ({cur})", cur), use_container_width=True)
+    st.plotly_chart(premium_chart(agg, "Product", f"Pending Receivables by Product ({cur})", cur), use_container_width=True)
 
     # 4 & 5. Monthly charts side by side
     st.markdown("---")
     c3, c4 = st.columns(2)
     with c3:
-        # 4. Monthly revenue for all products combined
+        # 4. Monthly revenue for all products combined (with contract count)
         monthly_agg = df_filtered.groupby("YearMonth").agg(
-            Premium=("Annual Premium", "sum"), Target=("Target", "sum"),
-        ).reset_index()
+            Premium=("Annual Premium", "sum"), Contracts=("Contract ID", "count"),
+        ).reset_index().sort_values("YearMonth")
         monthly_agg["Premium"] = monthly_agg["Premium"].apply(lambda v: convert(v, cur))
-        monthly_agg["Target"] = monthly_agg["Target"].apply(lambda v: convert(v, cur))
-        monthly_agg = monthly_agg.sort_values("YearMonth")
         fig_m = go.Figure()
         fig_m.add_trace(go.Bar(
             x=monthly_agg["YearMonth"], y=monthly_agg["Premium"], name="Revenue",
             marker_color=PAID_COLOR,
             hovertemplate="%{x}<br>Revenue: %{y:,.2f}<extra></extra>",
         ))
+        # Contract count annotations on each bar
+        for xm, ym, cm in zip(monthly_agg["YearMonth"], monthly_agg["Premium"], monthly_agg["Contracts"]):
+            fig_m.add_annotation(
+                x=xm, y=ym,
+                text=f"<b>{_fmt_val(ym)}</b><br>{cm:,} contracts",
+                showarrow=False, yshift=15,
+                font=dict(size=10, color="#37474F"),
+                align="center",
+            )
         _base_layout(fig_m, 400)
-        fig_m.update_layout(title=f"Monthly Revenue ({cur})", xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45))
+        fig_m.update_layout(title=f"Monthly Revenue ({cur})", xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45), margin=dict(t=50, b=70, l=60, r=30))
         st.plotly_chart(fig_m, use_container_width=True)
 
     with c4:
