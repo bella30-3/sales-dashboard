@@ -22,27 +22,27 @@ st.markdown("""
 }
 
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0D1B2A 0%, #1B2838 100%);
+    background: linear-gradient(180deg, #E3F2FD 0%, #F3E5F5 100%);
 }
 
 [data-testid="stSidebar"] .stMarkdown p,
 [data-testid="stSidebar"] .stMarkdown li,
 [data-testid="stSidebar"] label,
 [data-testid="stSidebar"] .stCaption {
-    color: #B0BEC5 !important;
+    color: #37474F !important;
 }
 
 [data-testid="stSidebar"] .stRadio label span {
-    color: #CFD8DC !important;
+    color: #455A64 !important;
 }
 
 [data-testid="stSidebar"] .stRadio label[data-checked="true"] span {
-    color: #4FC3F7 !important;
-    font-weight: 600;
+    color: #0277BD !important;
+    font-weight: 700;
 }
 
 [data-testid="stSidebar"] hr {
-    border-color: rgba(79, 195, 247, 0.2) !important;
+    border-color: rgba(2, 119, 189, 0.2) !important;
 }
 
 h1, h2, h3 {
@@ -51,9 +51,17 @@ h1, h2, h3 {
 
 .stMetric > div {
     background: linear-gradient(135deg, #E3F2FD 0%, #F3E5F5 100%);
-    border-radius: 12px;
-    padding: 12px 16px;
+    border-radius: 10px;
+    padding: 8px 12px;
     border: 1px solid rgba(79, 195, 247, 0.15);
+}
+
+.stMetric label {
+    font-size: 0.8rem !important;
+}
+
+.stMetric [data-testid="stMetricValue"] {
+    font-size: 1.1rem !important;
 }
 
 .stTabs [data-baseweb="tab-list"] {
@@ -175,21 +183,28 @@ def get_client(product, country):
         clients = [c for cs in all_pc.values() for c in cs]
     return random.choice(clients) if clients else "Unknown"
 
-# Monthly premium targets in SGD (converted to USD at 1.35 rate)
-SGD_TO_USD = 1.35
-MONTHLY_TARGETS_SGD = {
-    "Income Protection": 20000,  # ~20k SGD/month
-    "EV / Auto": 15000,          # ~15k SGD/month
-    "Care Aqua": 6000,            # ~6k SGD/month
+# Product launch dates
+PRODUCT_LAUNCH = {
+    "Income Protection": datetime(2023, 7, 1),
+    "EV / Auto": datetime(2024, 7, 1),
+    "Care Aqua": datetime(2026, 1, 1),
 }
-MONTHLY_TARGETS_USD = {k: v / SGD_TO_USD for k, v in MONTHLY_TARGETS_SGD.items()}
 
-# Target policies per month
+# Per-policy premium range in SGD
+POLICY_PREMIUM_RANGE_SGD = {
+    "Income Protection": (100, 450),
+    "EV / Auto": (100, 450),
+    "Care Aqua": (100, 450),
+}
+
+# Max policies per month
 MONTHLY_POLICY_COUNTS = {
     "Income Protection": 300,
-    "EV / Auto": 400,
-    "Care Aqua": 600,
+    "EV / Auto": 300,
+    "Care Aqua": 300,
 }
+
+SGD_TO_USD = 1.35
 
 EV_HEALTH_STATES = ["Healthy", "Fair", "Poor"]
 EV_BRANDS = ["Mahindra", "BYD", "Porsche", "Subaru", "Hyundai", "Cycle & Carriage"]
@@ -223,44 +238,51 @@ def _random_n_contracts(target_n, prod):
         return int(target_n * random.uniform(2.0, 3.5))
 
 def generate_data():
-    """Generate monthly contract data from Jul 2023 to today.
-    Policy counts per month (avg): IPI ~300, EV ~400, Aqua ~600.
-    Wild variance: some months 5 policies, others 3x the target.
+    """Generate monthly contract data with staggered product launches.
+    IPI: Jul 2023, EV: Jul 2024, Aqua: Jan 2026.
+    Per-policy premium: 100-450 SGD. Max 300 policies/month.
     """
     rows = []
-    start_date = datetime(2023, 7, 1)
     end_date = datetime.now()
-    current = start_date
+    current = datetime(2023, 7, 1)
 
     while current <= end_date:
         year, month = current.year, current.month
+        days_in_month = 28 if month == 2 else (30 if month in (4, 6, 9, 11) else 31)
 
         # Seasonal multiplier
         seasonal = 1.0
         if month in (10, 11, 12):
-            seasonal = random.uniform(1.05, 1.25)
+            seasonal = random.uniform(1.05, 1.2)
         elif month in (1, 2):
             seasonal = random.uniform(0.8, 0.95)
         else:
             seasonal = random.uniform(0.9, 1.1)
 
-        # Year-over-year growth (~10% CAGR)
-        years_elapsed = (current - start_date).days / 365.25
-        growth = (1.0 + 0.10) ** years_elapsed
+        for prod in PRODUCT_LAUNCH:
+            launch = PRODUCT_LAUNCH[prod]
+            if current < launch:
+                continue  # product not launched yet
 
-        days_in_month = 28 if month == 2 else (30 if month in (4, 6, 9, 11) else 31)
+            # Months since launch (for growth calc)
+            months_since_launch = (current.year - launch.year) * 12 + (current.month - launch.month)
+            # Ramp-up: start at 40% capacity, reach full after 6 months
+            ramp = min(1.0, 0.4 + 0.6 * (months_since_launch / 6))
 
-        for prod, base_target_usd in MONTHLY_TARGETS_USD.items():
             target_n = MONTHLY_POLICY_COUNTS[prod]
-            n_policies = max(5, int(_random_n_contracts(target_n, prod) * seasonal * growth))
-            monthly_budget = base_target_usd * seasonal * growth * (n_policies / target_n)
+            premium_lo, premium_hi = POLICY_PREMIUM_RANGE_SGD[prod]
+            premium_lo_usd = premium_lo / SGD_TO_USD
+            premium_hi_usd = premium_hi / SGD_TO_USD
 
-            # Distribute budget with skew
-            weights = np.random.dirichlet(np.ones(n_policies) * 0.5)
-            premiums = weights * monthly_budget
+            n_policies = max(3, int(_random_n_contracts(target_n, prod) * seasonal * ramp))
 
-            for i, premium in enumerate(premiums):
-                premium = max(30, round(premium))
+            for i in range(n_policies):
+                # Each policy: random premium in range
+                premium_sgd = random.uniform(premium_lo, premium_hi)
+                # Occasional larger policies (corporate plans)
+                if random.random() < 0.08:
+                    premium_sgd = random.uniform(450, 1200)
+                premium = round(premium_sgd / SGD_TO_USD)  # convert to USD
 
                 # Country distribution
                 if prod == "Care Aqua":
@@ -304,7 +326,6 @@ def generate_data():
 
                 # EV-specific fields
                 if prod == "EV / Auto":
-                    ev_country = country if country != "Europe" else random.choice(["India", "Singapore", "Thailand"])
                     brand = random.choice(EV_BRANDS)
                     health = random.choices(EV_HEALTH_STATES, weights=[60, 30, 10])[0]
                     age = random.randint(1, 15)
@@ -422,7 +443,7 @@ TARGET_COLOR = "#F48FB1"
 BG_COLOR = "rgba(17, 25, 40, 0.02)"
 GRID_COLOR = "rgba(100, 150, 255, 0.08)"
 
-def _base_layout(fig, height=450):
+def _base_layout(fig, height=300):
     fig.update_layout(
         height=height,
         title_font_size=16,
@@ -440,10 +461,10 @@ def _base_layout(fig, height=450):
     )
     return fig
 
-def bar_chart(data, x, y, title, color=None, barmode="group"):
+def bar_chart(data, x, y, title, color=None, barmode="group", height=300):
     fig = px.bar(data, x=x, y=y, color=color, title=title, barmode=barmode,
                  text_auto=".2s", color_discrete_sequence=PALETTE)
-    _base_layout(fig)
+    _base_layout(fig, height)
     fig.update_traces(textposition="outside", textfont_size=11)
     return fig
 
@@ -561,7 +582,7 @@ def render_comparison_metrics(df_in, d_start, d_end, cur, prefix=""):
             else:
                 comp_cols[i].metric(label, "N/A")
 
-def premium_chart(agg, group_col, title, currency, height=450):
+def premium_chart(agg, group_col, title, currency, height=320):
     """Stacked bar chart: Paid + Outstanding stacked, Target as a line cutting through.
     Shows totals on top and target achievement %.
     """
