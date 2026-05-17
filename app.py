@@ -308,7 +308,7 @@ def generate_data():
                 start_day = random.randint(1, min(days_in_month, 28))
                 start = datetime(year, month, start_day)
                 end = start + timedelta(days=365)
-                target = premium * random.uniform(1.1, 1.5)
+                target = premium  # Target matches actuals
 
                 row = {
                     "Contract ID": f"{''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=3))}{random.randint(10000,99999)}",
@@ -506,7 +506,7 @@ PALETTE_BARS = ["#4FC3F7", "#80DEEA", "#B39DDB", "#F48FB1", "#FFD54F", "#A5D6A7"
 ACCENT_BLUE = "#29B6F6"
 PAID_COLOR = "#4FC3F7"
 OUTSTANDING_COLOR = "#CE93D8"
-TARGET_COLOR = "#F48FB1"
+TARGET_COLOR = "#66BB6A"  # Green for target line
 BG_COLOR = "rgba(17, 25, 40, 0.02)"
 GRID_COLOR = "rgba(100, 150, 255, 0.08)"
 
@@ -803,6 +803,7 @@ if page == "🌍 Overall Product (World)":
         mode="lines",
     ))
     fig_m.update_layout(
+        title=f"Monthly Premium Trend ({cur})",
         barmode="stack", height=400,
         plot_bgcolor=BG_COLOR, paper_bgcolor="rgba(0,0,0,0)",
         font=dict(family="Inter, sans-serif", color="#37474F", size=13),
