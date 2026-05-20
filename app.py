@@ -645,7 +645,7 @@ def premium_chart(agg, group_col, title, currency, height=420):
             align="center",
         )
     _base_layout(fig, height)
-    fig.update_layout(barmode="stack", margin=dict(t=65))
+    fig.update_layout(title=title, barmode="stack", margin=dict(t=65))
     return fig
 
 def premium_chart_compare(merged, group_col, title, currency, cmp_label="", height=420):
