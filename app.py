@@ -199,7 +199,7 @@ def get_client(product, country, current_date=None):
 # Product launch dates
 PRODUCT_LAUNCH = {
     "Income Protection": datetime(2023, 7, 1),
-    "EV / Auto": datetime(2024, 7, 1),
+    "EV / Auto": datetime(2024, 1, 1),
     "Care Aqua": datetime(2026, 1, 1),
 }
 
@@ -210,15 +210,32 @@ POLICY_PREMIUM_RANGE_SGD = {
     "Care Aqua": (1800, 2200),
 }
 
-# Realistic monthly contract counts (total per product, not per plan)
-# IPI: ~50 lives/mo → avg ~200 SGD → ~10K/mo revenue
-# EV: ~30/mo → avg ~300 SGD → ~9K/mo revenue
-# Aqua: ~10/mo → avg ~2000 SGD → ~20K/mo revenue
-# Total: ~39K/mo × 12mo = ~468K SGD/year (within 1M budget)
+# Monthly contract targets by date range.
+# Each entry: (start_date, end_date, monthly_count)
+# Evaluated top-to-bottom; first matching range wins.
+#
+# Targets:
+#   IPI  Oct 2024–May 2026: 2,400 total  → ~67/mo pre-2026, 280/mo in 2026
+#   EV   Jan 2024–May 2026: 2,000 total  → ~42/mo pre-2026, 400/mo in 2026
+#   Aqua Jan 2026–May 2026:    50 total  → 10/mo
 MONTHLY_POLICY_COUNTS = {
     "Income Protection": 50,
     "EV / Auto": 30,
     "Care Aqua": 10,
+}
+
+RATE_SCHEDULE = {
+    "Income Protection": [
+        (datetime(2026, 1, 1), datetime(2026, 5, 31), 320),
+        (datetime(2024, 10, 1), datetime(2025, 12, 31), 75),
+    ],
+    "EV / Auto": [
+        (datetime(2026, 1, 1), datetime(2026, 5, 31), 460),
+        (datetime(2024, 1, 1), datetime(2025, 12, 31), 50),
+    ],
+    "Care Aqua": [
+        (datetime(2026, 1, 1), datetime(2026, 5, 31), 12),
+    ],
 }
 
 SGD_TO_USD = 1.35
@@ -237,22 +254,22 @@ IPI_PLANS = {
 }
 
 def _random_n_contracts(target_n, prod):
-    """Return a random policy count with moderate variance (±40%)."""
+    """Return a random policy count with tight variance (±15%)."""
     r = random.random()
-    if r < 0.08:       # 8% chance: slow month
-        return max(3, int(target_n * random.uniform(0.4, 0.7)))
-    elif r < 0.30:     # 22% chance: below average
-        return max(5, int(target_n * random.uniform(0.7, 0.9)))
-    elif r < 0.75:     # 45% chance: around average
-        return int(target_n * random.uniform(0.9, 1.1))
+    if r < 0.05:       # 5% chance: slow month
+        return max(3, int(target_n * random.uniform(0.7, 0.85)))
+    elif r < 0.25:     # 20% chance: below average
+        return max(5, int(target_n * random.uniform(0.85, 0.95)))
+    elif r < 0.75:     # 50% chance: around average
+        return int(target_n * random.uniform(0.95, 1.05))
     elif r < 0.95:     # 20% chance: good month
-        return int(target_n * random.uniform(1.1, 1.4))
-    else:              # 8% chance: blowout month
-        return int(target_n * random.uniform(2.0, 3.5))
+        return int(target_n * random.uniform(1.05, 1.15))
+    else:              # 5% chance: blowout month
+        return int(target_n * random.uniform(1.15, 1.3))
 
 def generate_data():
     """Generate monthly contract data with staggered product launches.
-    IPI: Jul 2023, EV: Jul 2024, Aqua: Jan 2026.
+    IPI: Jul 2023, EV: Jan 2024, Aqua: Jan 2026.
     Per-policy premium: 100-450 SGD. Max 300 policies/month.
     """
     rows = []
@@ -282,7 +299,12 @@ def generate_data():
             # Ramp-up: start at 40% capacity, reach full after 6 months
             ramp = min(1.0, 0.4 + 0.6 * (months_since_launch / 6))
 
+            # Look up rate from schedule, fall back to default
             target_n = MONTHLY_POLICY_COUNTS[prod]
+            for sched_start, sched_end, sched_n in RATE_SCHEDULE.get(prod, []):
+                if sched_start <= current <= sched_end:
+                    target_n = sched_n
+                    break
             premium_lo, premium_hi = POLICY_PREMIUM_RANGE_SGD[prod]
             premium_lo_usd = premium_lo / SGD_TO_USD
             premium_hi_usd = premium_hi / SGD_TO_USD
