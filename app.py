@@ -15,10 +15,10 @@ st.set_page_config(page_title="Sales Dashboard", layout="wide", initial_sidebar_
 # ─────────────────────────────────────────────
 # DARK THEME — single consistent look
 # ─────────────────────────────────────────────
-ACCENT = "#2860F8"              # bright blue — primary bars
-PAID_COLOR = "#2860F8"
-OUTSTANDING_COLOR = "#F02850"    # coral
-TARGET_COLOR = "#30B8A0"         # teal
+ACCENT = "#3360F0"              # bright blue
+PAID_COLOR = "#3360F0"
+OUTSTANDING_COLOR = "#E04050"    # pink-red
+TARGET_COLOR = "#60B0A0"         # teal/aqua
 BG_COLOR = "#F8F8F8"
 CARD_BG = "#FFFFFF"
 SIDEBAR_BG = "#203848"
@@ -27,14 +27,25 @@ TEXT_SECONDARY = "#6B7B8D"
 GRID_COLOR = "rgba(0,0,0,0.06)"
 HEADING_COLOR = "#203848"
 
+# Product colours — distinct, consistent everywhere
 PRODUCT_COLORS = {
-    "Income Protection": "#8B5CF6",   # purple
-    "Automotive": "#30B8A0",      # teal/green
-    "Care - Aqua": "#F8B830",          # gold/yellow
+    "Income Protection": "#3360F0",   # bright blue
+    "Automotive": "#60B0A0",          # teal/aqua
+    "Care - Aqua": "#F0B020",         # yellow-orange
 }
 PRODUCT_DEFAULT_COLOR = ACCENT
 
+# Country colours — distinct, consistent everywhere
+COUNTRY_COLORS = {
+    "Singapore": "#E04050",   # pink-red
+    "Thailand": "#3050F0",   # secondary blue
+    "India": "#F02050",      # accent red
+    "Europe": "#F0B020",     # yellow-orange
+}
+COUNTRY_DEFAULT_COLOR = "#3360F0"
+
 def get_product_country_color(product, country):
+    """For charts showing product × country, prefer product colour."""
     return PRODUCT_COLORS.get(product, PRODUCT_DEFAULT_COLOR)
 
 # Dark theme CSS
@@ -90,7 +101,7 @@ h1, h2, h3 {
 }
 
 .stTabs [aria-selected="true"] {
-    background: #2860F8;
+    background: #3360F0;
     color: #FFFFFF !important;
     font-weight: 700;
 }
@@ -597,8 +608,8 @@ st.sidebar.caption(f"Premium: **{fmt(convert(df_filtered['Annual Premium'].sum()
 # ─────────────────────────────────────────────
 # THEME — Cute Futuristic Blue
 # ─────────────────────────────────────────────
-PALETTE = ["#2860F8"]
-PALETTE_BARS = ["#2860F8"]
+PALETTE = ["#3360F0"]
+PALETTE_BARS = ["#3360F0"]
 
 
 def _base_layout(fig, height=420):
@@ -763,7 +774,7 @@ def premium_chart_compare(merged, group_col, title, currency, cmp_label="", heig
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Paid_cmp"], name=f"Paid ({cmp_label})",
-        marker_color="rgba(40, 96, 248, 0.25)", marker_line=dict(width=1, color=PAID_COLOR),
+        marker_color="rgba(51, 96, 240, 0.25)", marker_line=dict(width=1, color=PAID_COLOR),
         text=[fmt(v, currency) for v in merged["Paid_cmp"]],
         textposition="inside", textfont=dict(size=10, color="#6B7B8D"),
     ))
@@ -795,7 +806,7 @@ def bar_chart_compare(merged, group_col, y_curr, y_cmp, title, currency, cmp_lab
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged[y_cmp], name=cmp_label,
-        marker_color="rgba(40, 96, 248, 0.25)", marker_line=dict(width=1, color=PAID_COLOR),
+        marker_color="rgba(51, 96, 240, 0.25)", marker_line=dict(width=1, color=PAID_COLOR),
         text=[fmt(v, currency) for v in merged[y_cmp]],
         textposition="outside", textfont=dict(size=11),
     ))
@@ -1055,10 +1066,10 @@ elif page == "🏳️ Country Drill Down":
         fig = go.Figure()
         for prod_name in cp["Product"].unique():
             pdata = cp[cp["Product"] == prod_name]
-            bar_colors = [get_product_country_color(prod_name, c) for c in pdata["Country"]]
+            prod_color = PRODUCT_COLORS.get(prod_name, PRODUCT_DEFAULT_COLOR)
             fig.add_trace(go.Bar(
                 x=pdata["Country"], y=pdata["Contracts"], name=prod_name,
-                marker_color=bar_colors,
+                marker_color=prod_color,
                 text=[f"{int(c):,}" for c in pdata["Contracts"]],
                 textposition="outside", textfont=dict(size=10),
                 customdata=[[fmt(v, cur)] for v in pdata["Revenue"]],
@@ -1110,8 +1121,10 @@ elif page == "🏳️ Country Drill Down":
         fig = go.Figure()
         for country in cl["Country"].unique():
             cdata = cl[cl["Country"] == country]
+            country_color = COUNTRY_COLORS.get(country, COUNTRY_DEFAULT_COLOR)
             fig.add_trace(go.Bar(
                 y=cdata["Client"], x=cdata["Revenue"], name=country, orientation="h",
+                marker_color=country_color,
                 text=[fmt(v, cur) for v in cdata["Revenue"]], textposition="outside", textfont=dict(size=10),
                 customdata=cdata[["Contracts"]].values,
                 hovertemplate=f"<b>%{{y}} — {country}</b><br>Revenue: %{{x}}<br>Contracts: %{{customdata[0]:,}}<extra></extra>",
@@ -1147,7 +1160,7 @@ elif page == "📦 Product Drill Down":
             ).reset_index()
             cp["Revenue"] = cp["Revenue"].apply(lambda v: convert(v, cur))
             fig = go.Figure()
-            bar_colors = [get_product_country_color(prod_sel, c) for c in cp["Country"]]
+            bar_colors = [COUNTRY_COLORS.get(c, COUNTRY_DEFAULT_COLOR) for c in cp["Country"]]
             fig.add_trace(go.Bar(
                 y=cp["Country"], x=cp["Revenue"], name=f"Revenue ({cur})",
                 orientation="h", marker_color=bar_colors,
@@ -1206,13 +1219,13 @@ elif page == "📦 Product Drill Down":
             ).reset_index()
             cl["Revenue"] = cl["Revenue"].apply(lambda v: convert(v, cur))
             cl = cl.sort_values("Revenue", ascending=False).head(15)
-            prod_color = PRODUCT_COLORS.get(prod_sel, PRODUCT_DEFAULT_COLOR)
             fig = go.Figure()
             for country in cl["Country"].unique():
                 cdata = cl[cl["Country"] == country]
+                country_color = COUNTRY_COLORS.get(country, COUNTRY_DEFAULT_COLOR)
                 fig.add_trace(go.Bar(
                     y=cdata["Client"], x=cdata["Revenue"], name=country,
-                    orientation="h", marker_color=prod_color,
+                    orientation="h", marker_color=country_color,
                     text=[fmt(v, cur) for v in cdata["Revenue"]],
                     textposition="outside", textfont=dict(size=10),
                     customdata=cdata[["Contracts"]].values,
