@@ -12,17 +12,20 @@ from currency import convert, fmt, currency_selector
 # ─────────────────────────────────────────────
 st.set_page_config(page_title="Sales Dashboard", layout="wide", initial_sidebar_state="expanded", page_icon="🌊")
 
-# Custom CSS for cute futuristic blue theme
+# Custom CSS — vibrant fun theme
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 .stApp {
     font-family: 'Inter', sans-serif;
+    background: #FAFBFE;
 }
 
+/* Sidebar — soft purple-pink gradient */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #E3F2FD 0%, #F3E5F5 100%);
+    background: linear-gradient(180deg, #F3E5F5 0%, #E8EAF6 50%, #E0F7FA 100%);
+    border-right: 1px solid #E8EAF6;
 }
 
 [data-testid="stSidebar"] .stMarkdown p,
@@ -37,50 +40,81 @@ st.markdown("""
 }
 
 [data-testid="stSidebar"] .stRadio label[data-checked="true"] span {
-    color: #0277BD !important;
+    color: #7B1FA2 !important;
     font-weight: 700;
 }
 
 [data-testid="stSidebar"] hr {
-    border-color: rgba(2, 119, 189, 0.2) !important;
+    border-color: rgba(123, 31, 162, 0.15) !important;
 }
 
+/* Headings — deep navy */
 h1, h2, h3 {
-    color: #263238 !important;
+    color: #1A237E !important;
+    font-weight: 700 !important;
 }
 
+/* Metric cards — glassmorphism with product-inspired gradient */
 .stMetric > div {
-    background: linear-gradient(135deg, #E3F2FD 0%, #F3E5F5 100%);
-    border-radius: 10px;
-    padding: 8px 12px;
-    border: 1px solid rgba(79, 195, 247, 0.15);
+    background: linear-gradient(135deg, rgba(46, 125, 50, 0.06) 0%, rgba(123, 31, 162, 0.06) 50%, rgba(3, 155, 229, 0.06) 100%);
+    border-radius: 14px;
+    padding: 12px 16px;
+    border: 1px solid rgba(123, 31, 162, 0.1);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: transform 0.15s ease;
+}
+
+.stMetric > div:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .stMetric label {
     font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em;
 }
 
 .stMetric [data-testid="stMetricValue"] {
-    font-size: 1.1rem !important;
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    color: #1A237E !important;
 }
 
+/* Tabs — pill-style with gradient active */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 4px;
+    gap: 6px;
+    padding: 4px;
+    background: rgba(232, 234, 246, 0.4);
+    border-radius: 12px;
 }
 
 .stTabs [data-baseweb="tab"] {
-    border-radius: 8px 8px 0 0;
-    padding: 8px 16px;
+    border-radius: 10px;
+    padding: 8px 18px;
+    font-weight: 500;
+    transition: all 0.2s ease;
 }
 
 .stTabs [aria-selected="true"] {
-    background: linear-gradient(135deg, #4FC3F7 0%, #81D4FA 100%);
+    background: linear-gradient(135deg, #7B1FA2 0%, #039BE5 100%);
     color: white !important;
+    box-shadow: 0 2px 8px rgba(123, 31, 162, 0.25);
 }
 
 div[data-testid="stDataFrame"] {
-    border-radius: 8px;
+    border-radius: 12px;
     overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* Plotly chart containers */
+.stPlotlyChart {
+    border-radius: 12px;
+    background: white;
+    padding: 4px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -205,17 +239,17 @@ def get_client(product, country, current_date=None):
     if product == "EV / Auto":
         ev_weights = {
             # Singapore
-            ("Singapore", "BYD"): 50,
+            ("Singapore", "BYD"): 55,
             ("Singapore", "Porsche"): 30,
             ("Singapore", "Cycle and Carriage"): 15,
             # Thailand
-            ("Thailand", "BYD"): 25,
+            ("Thailand", "BYD"): 30,
             ("Thailand", "Porsche"): 5,
             ("Thailand", "Subaru"): 3,
             ("Thailand", "Hyundai"): 1,
             ("Thailand", "BYD Forklift"): 1,
             # India
-            ("India", "Mahindra Trucks and Buses (MTB)"): 3,
+            ("India", "Mahindra Trucks and Buses (MTB)"): 1,
         }
         weights = [ev_weights.get((country, c), 1) for c in clients]
         return random.choices(clients, weights=weights, k=1)[0]
@@ -231,7 +265,7 @@ PRODUCT_LAUNCH = {
 # Per-policy premium range in SGD
 POLICY_PREMIUM_RANGE_SGD = {
     "Income Protection": (100, 450),
-    "EV / Auto": (200, 400),
+    "EV / Auto": (250, 450),
     "Care Aqua": (1800, 2200),
 }
 
@@ -255,8 +289,8 @@ RATE_SCHEDULE = {
         (datetime(2024, 10, 1), datetime(2025, 12, 31), 75),
     ],
     "EV / Auto": [
-        (datetime(2026, 1, 1), datetime(2026, 5, 31), 460),
-        (datetime(2024, 1, 1), datetime(2025, 12, 31), 50),
+        (datetime(2026, 1, 1), datetime(2026, 5, 31), 400),
+        (datetime(2024, 1, 1), datetime(2025, 12, 31), 150),
     ],
     "Care Aqua": [
         (datetime(2026, 1, 1), datetime(2026, 5, 31), 12),
@@ -341,12 +375,12 @@ def generate_data():
                 premium_sgd = random.uniform(premium_lo, premium_hi)
                 premium = round(premium_sgd / SGD_TO_USD)  # convert to USD
 
-                # Country distribution — weighted so Singapore has most EV contracts
+                # Country distribution — weighted so Singapore dominates EV
                 if prod == "Care Aqua":
                     country = "Europe"  # Aqua only sold in Europe
                 elif prod == "EV / Auto":
                     ev_countries = ["Singapore", "Thailand", "India"]
-                    country = random.choices(ev_countries, weights=[50, 35, 15])[0]
+                    country = random.choices(ev_countries, weights=[60, 32, 8])[0]
                 else:
                     country = random.choice([c for c in COUNTRIES.keys() if c != "Europe"])
                 region = COUNTRIES[country]
@@ -561,7 +595,7 @@ PALETTE = [
 ]
 PALETTE_BARS = ["#4FC3F7", "#80DEEA", "#B39DDB", "#F48FB1", "#FFD54F", "#A5D6A7"]
 
-ACCENT_BLUE = "#29B6F6"
+ACCENT_BLUE = "#039BE5"
 
 # Product colours — consistent across all charts
 PRODUCT_COLORS = {
@@ -570,17 +604,17 @@ PRODUCT_COLORS = {
     "Care - Aqua Warranty": "#039BE5",          # bright blue
 }
 PRODUCT_DEFAULT_COLOR = "#7B1FA2"
-PAID_COLOR = "#4FC3F7"
-OUTSTANDING_COLOR = "#CE93D8"
-TARGET_COLOR = "#66BB6A"  # Green for target line
-BG_COLOR = "rgba(17, 25, 40, 0.02)"
-GRID_COLOR = "rgba(100, 150, 255, 0.08)"
+PAID_COLOR = "#26A69A"          # teal green — "paid" feels positive
+OUTSTANDING_COLOR = "#FF8A65"   # warm coral — draws attention
+TARGET_COLOR = "#66BB6A"        # green for target line
+BG_COLOR = "rgba(123, 31, 162, 0.015)"
+GRID_COLOR = "rgba(123, 31, 162, 0.06)"
 
 def _base_layout(fig, height=420):
     fig.update_layout(
         height=height,
         title_font_size=16,
-        title_font_color="#37474F",
+        title_font_color="#1A237E",
         xaxis_title="",
         yaxis_title="",
         legend_title="",
