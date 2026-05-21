@@ -258,8 +258,8 @@ def get_client(product, country, current_date=None):
     if product == "Income Protection":
         ipi_weights = {
             # Singapore
-            ("Singapore", "OCBC (GE)"): 55,
-            ("Singapore", "DBS (ECICS)"): 45,
+            ("Singapore", "OCBC (GE)"): 65,
+            ("Singapore", "DBS (ECICS)"): 35,
             # India
             ("India", "Raheja (RQBE)"): 20,
             # Thailand
