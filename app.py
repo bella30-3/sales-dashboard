@@ -1125,17 +1125,6 @@ elif page == "🏳️ Country Drill Down":
     fig_tc_cmp = build_top_clients(cc_cmp, f"Top Clients — {sel_label} ({cur})") if cc_cmp is not None and len(cc_cmp) > 0 else None
     render_comparison(fig_tc, fig_tc_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
 
-    # skip the old Top Clients rendering below
-    if False:
-        fig_cl = go.Figure()
-        fig_cl.update_layout(
-            title=f"Top Clients — {sel_label} ({cur})",
-            barmode="group",
-            xaxis=dict(gridcolor=GRID_COLOR),
-        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
-    )
-    st.plotly_chart(fig_cl, use_container_width=True)
-
 # ─────────────────────────────────────────────
 # PAGE 4: PRODUCT DRILL DOWN
 # ─────────────────────────────────────────────
