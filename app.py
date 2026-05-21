@@ -28,14 +28,14 @@ GRID_COLOR = "rgba(0,0,0,0.06)"
 HEADING_COLOR = "#203848"
 
 PRODUCT_COLORS = {
-    "Income Protection Insurance": ACCENT,
-    "Electric Vehicles / Auto": ACCENT,
-    "Care - Aqua Warranty": ACCENT,
+    "Income Protection Insurance": "#8B5CF6",   # purple
+    "Electric Vehicles / Auto": "#30B8A0",      # teal/green
+    "Care - Aqua Warranty": "#F8B830",          # gold/yellow
 }
 PRODUCT_DEFAULT_COLOR = ACCENT
 
 def get_product_country_color(product, country):
-    return ACCENT
+    return PRODUCT_COLORS.get(product, PRODUCT_DEFAULT_COLOR)
 
 # Dark theme CSS
 st.markdown("""
@@ -57,11 +57,17 @@ st.markdown("""
 [data-testid="stSidebar"] .stMarkdown li,
 [data-testid="stSidebar"] label,
 [data-testid="stSidebar"] .stCaption {
-    color: #C0D0E0 !important;
+    color: #FFFFFF !important;
+}
+
+[data-testid="stSidebar"] .stSelectbox label,
+[data-testid="stSidebar"] .stDateInput label,
+[data-testid="stSidebar"] .stMultiSelect label {
+    color: #E0E8F0 !important;
 }
 
 [data-testid="stSidebar"] .stRadio label span {
-    color: #A0B8C8 !important;
+    color: #D0E0F0 !important;
 }
 
 [data-testid="stSidebar"] .stRadio label[data-checked="true"] span {
@@ -70,7 +76,21 @@ st.markdown("""
 }
 
 [data-testid="stSidebar"] hr {
-    border-color: rgba(255,255,255,0.1) !important;
+    border-color: rgba(255,255,255,0.15) !important;
+}
+
+[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] {
+    color: #FFFFFF;
+}
+
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3 {
+    color: #FFFFFF !important;
+}
+
+[data-testid="stSidebar"] .stMarkdown a {
+    color: #80C0FF !important;
 }
 
 h1, h2, h3 {
