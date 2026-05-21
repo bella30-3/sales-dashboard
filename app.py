@@ -28,9 +28,9 @@ GRID_COLOR = "rgba(0,0,0,0.06)"
 HEADING_COLOR = "#203848"
 
 PRODUCT_COLORS = {
-    "Income Protection Insurance": "#8B5CF6",   # purple
-    "Electric Vehicles / Auto": "#30B8A0",      # teal/green
-    "Care - Aqua Warranty": "#F8B830",          # gold/yellow
+    "Income Protection": "#8B5CF6",   # purple
+    "Automotive": "#30B8A0",      # teal/green
+    "Care - Aqua": "#F8B830",          # gold/yellow
 }
 PRODUCT_DEFAULT_COLOR = ACCENT
 
@@ -114,7 +114,7 @@ div[data-testid="stDataFrame"] {
 # ─────────────────────────────────────────────
 PRODUCTS = {
     "EV / Auto": {
-        "label": "Electric Vehicles / Auto",
+        "label": "Automotive",
         "desc": "Service Contracts & Warranties",
         "plans": {
             "India": ["EV Warranty"],
@@ -123,7 +123,7 @@ PRODUCTS = {
         },
     },
     "Income Protection": {
-        "label": "Income Protection Insurance",
+        "label": "Income Protection",
         "desc": "Contracts & Premiums",
         "plans": {
             "India": ["RQBE (All)"],
@@ -149,7 +149,7 @@ PRODUCTS = {
         },
     },
     "Care Aqua": {
-        "label": "Care - Aqua Warranty",
+        "label": "Care - Aqua",
         "desc": "Warranty Contracts & Amounts",
         "plans": {
             "India": ["Pure", "Fresh", "Pro"],
