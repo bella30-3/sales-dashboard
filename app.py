@@ -146,7 +146,7 @@ REGIONS = ["Asia", "Europe"]
 CLIENTS_BY_PRODUCT_COUNTRY = {
     "EV / Auto": {
         "India": ["Mahindra Trucks and Buses (MTB)"],
-        "Singapore": ["Cycle and Carriage", "BYD"],
+        "Singapore": ["BYD", "Porsche", "Cycle and Carriage"],
         "Thailand": ["BYD", "Porsche", "Subaru", "Hyundai", "BYD Forklift"],
     },
     "Income Protection": {
@@ -173,6 +173,11 @@ CLIENT_LAUNCH_DATES = {
             "Hyundai": datetime(2099, 1, 1),  # Not yet active
             "BYD Forklift": datetime(2099, 1, 1),  # Not yet active
         },
+        "Singapore": {
+            "BYD": datetime(2024, 7, 1),
+            "Porsche": datetime(2025, 1, 1),
+            "Cycle and Carriage": datetime(2024, 7, 1),
+        },
     },
 }
 
@@ -194,7 +199,27 @@ def get_client(product, country, current_date=None):
     if current_date and product in CLIENT_LAUNCH_DATES and country in CLIENT_LAUNCH_DATES[product]:
         launch_dates = CLIENT_LAUNCH_DATES[product][country]
         clients = [c for c in clients if c not in launch_dates or current_date >= launch_dates[c]]
-    return random.choice(clients) if clients else "Unknown"
+    if not clients:
+        return "Unknown"
+    # EV weighted client selection — realistic contract volume ranking
+    if product == "EV / Auto":
+        ev_weights = {
+            # Singapore
+            ("Singapore", "BYD"): 50,
+            ("Singapore", "Porsche"): 30,
+            ("Singapore", "Cycle and Carriage"): 15,
+            # Thailand
+            ("Thailand", "BYD"): 25,
+            ("Thailand", "Porsche"): 5,
+            ("Thailand", "Subaru"): 3,
+            ("Thailand", "Hyundai"): 1,
+            ("Thailand", "BYD Forklift"): 1,
+            # India
+            ("India", "Mahindra Trucks and Buses (MTB)"): 3,
+        }
+        weights = [ev_weights.get((country, c), 1) for c in clients]
+        return random.choices(clients, weights=weights, k=1)[0]
+    return random.choice(clients)
 
 # Product launch dates
 PRODUCT_LAUNCH = {
@@ -316,9 +341,12 @@ def generate_data():
                 premium_sgd = random.uniform(premium_lo, premium_hi)
                 premium = round(premium_sgd / SGD_TO_USD)  # convert to USD
 
-                # Country distribution
+                # Country distribution — weighted so Singapore has most EV contracts
                 if prod == "Care Aqua":
                     country = "Europe"  # Aqua only sold in Europe
+                elif prod == "EV / Auto":
+                    ev_countries = ["Singapore", "Thailand", "India"]
+                    country = random.choices(ev_countries, weights=[50, 35, 15])[0]
                 else:
                     country = random.choice([c for c in COUNTRIES.keys() if c != "Europe"])
                 region = COUNTRIES[country]
@@ -532,15 +560,16 @@ PALETTE = [
     "#A5D6A7",  # mint green
 ]
 PALETTE_BARS = ["#4FC3F7", "#80DEEA", "#B39DDB", "#F48FB1", "#FFD54F", "#A5D6A7"]
+
 ACCENT_BLUE = "#29B6F6"
 
 # Product colours — consistent across all charts
 PRODUCT_COLORS = {
-    "Care - Aqua Warranty": "#1565C0",       # blue
-    "Electric Vehicles / Auto": "#105EE1",    # navy blue
-    "Income Protection Insurance": "#4CAF50", # green
+    "Income Protection Insurance": "#1565C0",
+    "Electric Vehicles / Auto": "#00897B",
+    "Care - Aqua Warranty": "#D5FFFF",
 }
-PRODUCT_DEFAULT_COLOR = "#7B1FA2"             # violet for anything else
+PRODUCT_DEFAULT_COLOR = "#7B1FA2"
 PAID_COLOR = "#4FC3F7"
 OUTSTANDING_COLOR = "#CE93D8"
 TARGET_COLOR = "#66BB6A"  # Green for target line
@@ -850,7 +879,7 @@ if page == "🌍 Executive Summary":
     fig_mp.update_layout(
         title=f"Monthly Revenue by Product ({cur})",
         xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45),
-        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
     )
     st.plotly_chart(fig_mp, use_container_width=True)
 
