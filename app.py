@@ -787,13 +787,14 @@ if page == "🌍 Executive Summary":
         Premium=("Annual Premium", "sum"), Contracts=("Contract ID", "count"),
     ).reset_index().sort_values("YearMonth")
     monthly_agg["Premium"] = monthly_agg["Premium"].apply(lambda v: convert(v, cur))
+    monthly_agg["Month"] = monthly_agg["YearMonth"].apply(lambda ym: datetime.strptime(ym, "%Y-%m").strftime("%b %Y"))
     fig_m = go.Figure()
     fig_m.add_trace(go.Bar(
-        x=monthly_agg["YearMonth"], y=monthly_agg["Premium"], name="Revenue",
+        x=monthly_agg["Month"], y=monthly_agg["Premium"], name="Revenue",
         marker_color=PAID_COLOR,
         hovertemplate="%{x}<br>Revenue: %{y:,.2f}<extra></extra>",
     ))
-    for xm, ym, cm in zip(monthly_agg["YearMonth"], monthly_agg["Premium"], monthly_agg["Contracts"]):
+    for xm, ym, cm in zip(monthly_agg["Month"], monthly_agg["Premium"], monthly_agg["Contracts"]):
         fig_m.add_annotation(
             x=xm, y=ym,
             text=f"<b>{_fmt_val(ym)}</b><br>{cm:,} contracts",
@@ -812,6 +813,7 @@ if page == "🌍 Executive Summary":
         Contracts=("Contract ID", "count"),
     ).reset_index().sort_values("YearMonth")
     mp["Premium"] = mp["Premium"].apply(lambda v: convert(v, cur))
+    mp["Month"] = mp["YearMonth"].apply(lambda ym: datetime.strptime(ym, "%Y-%m").strftime("%b %Y"))
     mp.rename(columns={"Product Label": "Product"}, inplace=True)
 
     PRODUCT_COLORS = {
@@ -824,7 +826,7 @@ if page == "🌍 Executive Summary":
         pp = mp[mp["Product"] == prod_name].sort_values("YearMonth")
         color = PRODUCT_COLORS.get(prod_name, PALETTE[0])
         fig_mp.add_trace(go.Scatter(
-            x=pp["YearMonth"], y=pp["Premium"], name=prod_name,
+            x=pp["Month"], y=pp["Premium"], name=prod_name,
             mode="lines+markers",
             line=dict(color=color, width=3),
             marker=dict(size=7, color=color, line=dict(width=1, color="white")),
