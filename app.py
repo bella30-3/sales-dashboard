@@ -780,6 +780,20 @@ def bar_chart_compare(merged, group_col, y_curr, y_cmp, title, currency, cmp_lab
     return fig
 
 
+def render_comparison(fig_curr, fig_cmp=None, curr_label="Current", cmp_label="Comparison"):
+    """Render charts side-by-side when comparison is active, otherwise single chart."""
+    if fig_cmp is not None:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.caption(f"📊 {curr_label}")
+            st.plotly_chart(fig_curr, use_container_width=True)
+        with c2:
+            st.caption(f"📊 {cmp_label}")
+            st.plotly_chart(fig_cmp, use_container_width=True)
+    else:
+        st.plotly_chart(fig_curr, use_container_width=True)
+
+
 def render_metrics(df_curr, df_cmp, cur, cmp_label=""):
     """Render metric cards. If comparison data exists, show deltas."""
     cmp_label = str(cmp_label) if cmp_label else "Comparison"
@@ -808,81 +822,109 @@ if page == "🌍 Executive Summary":
     # 1. Contracts by Product
     pc = df_filtered.groupby("Product Label")["Contract ID"].count().reset_index()
     pc.columns = ["Product", "Contracts"]
-    st.plotly_chart(bar_chart(pc, "Product", "Contracts", "Contracts by Product", color_map=PRODUCT_COLORS), use_container_width=True)
+    fig_pc = bar_chart(pc, "Product", "Contracts", "Contracts by Product", color_map=PRODUCT_COLORS)
+    fig_pc_cmp = None
+    if cmp_filtered is not None and len(cmp_filtered) > 0:
+        pc_c = cmp_filtered.groupby("Product Label")["Contract ID"].count().reset_index()
+        pc_c.columns = ["Product", "Contracts"]
+        fig_pc_cmp = bar_chart(pc_c, "Product", "Contracts", "Contracts by Product", color_map=PRODUCT_COLORS)
+    render_comparison(fig_pc, fig_pc_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
 
     # 2. Revenue by Product
     rev = df_filtered.groupby("Product Label")["Annual Premium"].sum().reset_index()
     rev.columns = ["Product", "Premium"]
     rev["Premium"] = rev["Premium"].apply(lambda v: convert(v, cur))
-    st.plotly_chart(bar_chart(rev, "Product", "Premium", f"Revenue by Product ({cur})", color_map=PRODUCT_COLORS), use_container_width=True)
+    fig_rev = bar_chart(rev, "Product", "Premium", f"Revenue by Product ({cur})", color_map=PRODUCT_COLORS)
+    fig_rev_cmp = None
+    if cmp_filtered is not None and len(cmp_filtered) > 0:
+        rev_c = cmp_filtered.groupby("Product Label")["Annual Premium"].sum().reset_index()
+        rev_c.columns = ["Product", "Premium"]
+        rev_c["Premium"] = rev_c["Premium"].apply(lambda v: convert(v, cur))
+        fig_rev_cmp = bar_chart(rev_c, "Product", "Premium", f"Revenue by Product ({cur})", color_map=PRODUCT_COLORS)
+    render_comparison(fig_rev, fig_rev_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
 
     # 3. Revenue Breakdown by Product
     st.markdown("---")
     agg = make_summary(df_filtered, "Product Label")
     agg.rename(columns={"Product Label": "Product"}, inplace=True)
     agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-    st.plotly_chart(premium_chart(agg, "Product", f"Pending Receivables by Product ({cur})", cur), use_container_width=True)
+    fig_agg = premium_chart(agg, "Product", f"Pending Receivables by Product ({cur})", cur)
+    fig_agg_cmp = None
+    if cmp_filtered is not None and len(cmp_filtered) > 0:
+        agg_c = make_summary(cmp_filtered, "Product Label")
+        agg_c.rename(columns={"Product Label": "Product"}, inplace=True)
+        agg_c = convert_cols(agg_c, ["Paid", "Outstanding", "Target"], cur)
+        fig_agg_cmp = premium_chart(agg_c, "Product", f"Pending Receivables by Product ({cur})", cur)
+    render_comparison(fig_agg, fig_agg_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
 
     # 4. Monthly revenue (with contract count)
     st.markdown("---")
-    monthly_agg = df_filtered.groupby("YearMonth").agg(
-        Premium=("Annual Premium", "sum"), Contracts=("Contract ID", "count"),
-    ).reset_index().sort_values("YearMonth")
-    monthly_agg["Premium"] = monthly_agg["Premium"].apply(lambda v: convert(v, cur))
-    monthly_agg["Month"] = monthly_agg["YearMonth"].apply(lambda ym: datetime.strptime(ym, "%Y-%m").strftime("%b %Y"))
-    fig_m = go.Figure()
-    fig_m.add_trace(go.Bar(
-        x=monthly_agg["Month"], y=monthly_agg["Premium"], name="Revenue",
-        marker_color=PAID_COLOR,
-        hovertemplate="%{x}<br>Revenue: %{y:,.2f}<extra></extra>",
-    ))
-    for xm, ym, cm in zip(monthly_agg["Month"], monthly_agg["Premium"], monthly_agg["Contracts"]):
-        fig_m.add_annotation(
-            x=xm, y=ym,
-            text=f"<b>{_fmt_val(ym)}</b><br>{cm:,} contracts",
-            showarrow=False, yshift=15,
-            font=dict(size=10, color="#6B7B8D"),
-            align="center",
-        )
-    _base_layout(fig_m, 400)
-    fig_m.update_layout(title=f"Monthly Revenue ({cur})", xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45), margin=dict(t=50, b=70, l=60, r=30))
-    st.plotly_chart(fig_m, use_container_width=True)
-
-    # 5. Monthly revenue by product — clean line chart with distinct colours
-    st.markdown("---")
-    mp = df_filtered.groupby(["YearMonth", "Product Label"]).agg(
-        Premium=("Annual Premium", "sum"), Target=("Target", "sum"),
-        Contracts=("Contract ID", "count"),
-    ).reset_index().sort_values("YearMonth")
-    mp["Premium"] = mp["Premium"].apply(lambda v: convert(v, cur))
-    mp["Month"] = mp["YearMonth"].apply(lambda ym: datetime.strptime(ym, "%Y-%m").strftime("%b %Y"))
-    mp.rename(columns={"Product Label": "Product"}, inplace=True)
-
-    fig_mp = go.Figure()
-    for prod_name in mp["Product"].unique():
-        pp = mp[mp["Product"] == prod_name].sort_values("YearMonth")
-        color = PRODUCT_COLORS.get(prod_name, PRODUCT_DEFAULT_COLOR)
-        fig_mp.add_trace(go.Scatter(
-            x=pp["Month"], y=pp["Premium"], name=prod_name,
-            mode="lines+markers",
-            line=dict(color=color, width=3),
-            marker=dict(size=7, color=color, line=dict(width=1, color="white")),
-            hovertemplate=(
-                f"<b>{prod_name}</b><br>"
-                "Month: %{x}<br>"
-                "Revenue: %{y:,.2f}<br>"
-                "Contracts: %{customdata[0]:,}"
-                "<extra></extra>"
-            ),
-            customdata=pp[["Contracts"]].values,
+    def build_monthly_rev(source_df, title):
+        ma = source_df.groupby("YearMonth").agg(
+            Premium=("Annual Premium", "sum"), Contracts=("Contract ID", "count"),
+        ).reset_index().sort_values("YearMonth")
+        ma["Premium"] = ma["Premium"].apply(lambda v: convert(v, cur))
+        ma["Month"] = ma["YearMonth"].apply(lambda ym: datetime.strptime(ym, "%Y-%m").strftime("%b %Y"))
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            x=ma["Month"], y=ma["Premium"], name="Revenue",
+            marker_color=PAID_COLOR,
+            hovertemplate="%{x}<br>Revenue: %{y:,.2f}<extra></extra>",
         ))
-    _base_layout(fig_mp, 400)
-    fig_mp.update_layout(
-        title=f"Monthly Revenue by Product ({cur})",
-        xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
-    )
-    st.plotly_chart(fig_mp, use_container_width=True)
+        for xm, ym, cm in zip(ma["Month"], ma["Premium"], ma["Contracts"]):
+            fig.add_annotation(
+                x=xm, y=ym,
+                text=f"<b>{_fmt_val(ym)}</b><br>{cm:,} contracts",
+                showarrow=False, yshift=15,
+                font=dict(size=10, color="#6B7B8D"),
+                align="center",
+            )
+        _base_layout(fig, 400)
+        fig.update_layout(title=title, xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45), margin=dict(t=50, b=70, l=60, r=30))
+        return fig
+
+    fig_m = build_monthly_rev(df_filtered, f"Monthly Revenue ({cur})")
+    fig_m_cmp = build_monthly_rev(cmp_filtered, f"Monthly Revenue ({cur})") if cmp_filtered is not None and len(cmp_filtered) > 0 else None
+    render_comparison(fig_m, fig_m_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
+
+    # 5. Monthly revenue by product
+    st.markdown("---")
+    def build_monthly_by_product(source_df, title):
+        mp = source_df.groupby(["YearMonth", "Product Label"]).agg(
+            Premium=("Annual Premium", "sum"), Contracts=("Contract ID", "count"),
+        ).reset_index().sort_values("YearMonth")
+        mp["Premium"] = mp["Premium"].apply(lambda v: convert(v, cur))
+        mp["Month"] = mp["YearMonth"].apply(lambda ym: datetime.strptime(ym, "%Y-%m").strftime("%b %Y"))
+        mp.rename(columns={"Product Label": "Product"}, inplace=True)
+        fig = go.Figure()
+        for prod_name in mp["Product"].unique():
+            pp = mp[mp["Product"] == prod_name].sort_values("YearMonth")
+            color = PRODUCT_COLORS.get(prod_name, PRODUCT_DEFAULT_COLOR)
+            fig.add_trace(go.Scatter(
+                x=pp["Month"], y=pp["Premium"], name=prod_name,
+                mode="lines+markers",
+                line=dict(color=color, width=3),
+                marker=dict(size=7, color=color, line=dict(width=1, color="white")),
+                hovertemplate=(
+                    f"<b>{prod_name}</b><br>"
+                    "Month: %{x}<br>"
+                    "Revenue: %{y:,.2f}<br>"
+                    "Contracts: %{customdata[0]:,}"
+                    "<extra></extra>"
+                ),
+                customdata=pp[["Contracts"]].values,
+            ))
+        _base_layout(fig, 400)
+        fig.update_layout(
+            title=title,
+            xaxis=dict(gridcolor=GRID_COLOR, tickangle=-45),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+        )
+        return fig
+
+    fig_mp = build_monthly_by_product(df_filtered, f"Monthly Revenue by Product ({cur})")
+    fig_mp_cmp = build_monthly_by_product(cmp_filtered, f"Monthly Revenue by Product ({cur})") if cmp_filtered is not None and len(cmp_filtered) > 0 else None
+    render_comparison(fig_mp, fig_mp_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
 
 # ─────────────────────────────────────────────
 # PAGE 2: REGION DRILL DOWN
@@ -896,55 +938,64 @@ elif page == "🗺️ Region Drill Down":
     render_metrics(rdf, r_cmp, cur, cmp_label)
     st.markdown("---")
 
-    # 1. Contracts by Product (with revenue hover)
-    rp = rdf.groupby("Product Label").agg(
-        Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
-    ).reset_index()
-    rp.columns = ["Product", "Contracts", "Revenue"]
-    rp["Revenue"] = rp["Revenue"].apply(lambda v: convert(v, cur))
-    fig_c = bar_chart(rp[["Product", "Contracts"]], "Product", "Contracts", f"Contracts — {region_sel}", color_map=PRODUCT_COLORS)
-    fig_c.update_traces(
-        hovertemplate="<b>%{x}</b><br>Contracts: %{y:,}<br>Revenue: %{customdata}<extra></extra>",
-        customdata=[fmt(v, cur) for v in rp["Revenue"]],
-    )
-    st.plotly_chart(fig_c, use_container_width=True)
+    # 1. Contracts by Product
+    def build_region_contracts(source_df, title):
+        rp = source_df.groupby("Product Label").agg(
+            Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
+        ).reset_index()
+        rp.columns = ["Product", "Contracts", "Revenue"]
+        rp["Revenue"] = rp["Revenue"].apply(lambda v: convert(v, cur))
+        fig = bar_chart(rp[["Product", "Contracts"]], "Product", "Contracts", title, color_map=PRODUCT_COLORS)
+        fig.update_traces(
+            hovertemplate="<b>%{x}</b><br>Contracts: %{y:,}<br>Revenue: %{customdata}<extra></extra>",
+            customdata=[fmt(v, cur) for v in rp["Revenue"]],
+        )
+        return fig
+
+    fig_rc = build_region_contracts(rdf, f"Contracts — {region_sel}")
+    fig_rc_cmp = build_region_contracts(r_cmp, f"Contracts — {region_sel}") if r_cmp is not None and len(r_cmp) > 0 else None
+    render_comparison(fig_rc, fig_rc_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
 
     # 2. Revenue Breakdown (Product)
-    if r_cmp is not None and len(r_cmp) > 0:
-        merged = make_compare_summary(rdf, r_cmp, "Product Label")
-        merged.rename(columns={"Product Label": "Product"}, inplace=True)
-        merged = convert_cols(merged, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
-        st.plotly_chart(premium_chart_compare(merged, "Product", f"Revenue Breakdown (Product) — {cur} vs {cmp_label}", cur, cmp_label), use_container_width=True)
-    else:
-        agg = make_summary(rdf, "Product Label")
+    def build_rev_breakdown_prod(source_df, title):
+        agg = make_summary(source_df, "Product Label")
         agg.rename(columns={"Product Label": "Product"}, inplace=True)
         agg = convert_cols(agg, ["Paid", "Outstanding", "Target"], cur)
-        st.plotly_chart(premium_chart(agg, "Product", f"Revenue Breakdown (Product) — {cur}", cur), use_container_width=True)
+        return premium_chart(agg, "Product", title, cur)
+
+    fig_rbp = build_rev_breakdown_prod(rdf, f"Revenue Breakdown (Product) — {cur}")
+    fig_rbp_cmp = build_rev_breakdown_prod(r_cmp, f"Revenue Breakdown (Product) — {cur}") if r_cmp is not None and len(r_cmp) > 0 else None
+    render_comparison(fig_rbp, fig_rbp_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
 
     # 3. Revenue Breakdown (Country)
-    if r_cmp is not None and len(r_cmp) > 0:
-        merged_c = make_compare_summary(rdf, r_cmp, "Country")
-        merged_c = convert_cols(merged_c, ["Paid", "Outstanding", "Target", "Paid_cmp", "Outstanding_cmp", "Target_cmp"], cur)
-        st.plotly_chart(premium_chart_compare(merged_c, "Country", f"Revenue Breakdown (Country) — {cur} vs {cmp_label}", cur, cmp_label), use_container_width=True)
-    else:
-        rc = rdf.groupby("Country").agg(
+    def build_rev_breakdown_country(source_df, title):
+        rc = source_df.groupby("Country").agg(
             Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"), Target=("Target", "sum"),
         ).reset_index()
         rc = convert_cols(rc, ["Paid", "Outstanding", "Target"], cur)
-        st.plotly_chart(premium_chart(rc, "Country", f"Revenue Breakdown (Country) — {cur}", cur), use_container_width=True)
+        return premium_chart(rc, "Country", title, cur)
+
+    fig_rbc = build_rev_breakdown_country(rdf, f"Revenue Breakdown (Country) — {cur}")
+    fig_rbc_cmp = build_rev_breakdown_country(r_cmp, f"Revenue Breakdown (Country) — {cur}") if r_cmp is not None and len(r_cmp) > 0 else None
+    render_comparison(fig_rbc, fig_rbc_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
 
     # 4. Contracts by Country & Product
-    cp = rdf.groupby(["Country", "Product Label"]).agg(
-        Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
-    ).reset_index()
-    cp.columns = ["Country", "Product", "Contracts", "Revenue"]
-    cp["Revenue"] = cp["Revenue"].apply(lambda v: convert(v, cur))
-    fig_cp = bar_chart(cp[["Country", "Product", "Contracts"]], "Country", "Contracts", f"Contracts by Country & Product", color="Product", color_map=PRODUCT_COLORS)
-    for trace in fig_cp.data:
-        mask = cp["Product"] == trace.name
-        trace.customdata = [[fmt(v, cur)] for v in cp[mask]["Revenue"]]
-        trace.hovertemplate = "<b>%{x} — " + trace.name + "</b><br>Contracts: %{y:,}<br>Revenue: %{customdata[0]}<extra></extra>"
-    st.plotly_chart(fig_cp, use_container_width=True)
+    def build_contracts_country_product(source_df, title):
+        cp = source_df.groupby(["Country", "Product Label"]).agg(
+            Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
+        ).reset_index()
+        cp.columns = ["Country", "Product", "Contracts", "Revenue"]
+        cp["Revenue"] = cp["Revenue"].apply(lambda v: convert(v, cur))
+        fig = bar_chart(cp[["Country", "Product", "Contracts"]], "Country", "Contracts", title, color="Product", color_map=PRODUCT_COLORS)
+        for trace in fig.data:
+            mask = cp["Product"] == trace.name
+            trace.customdata = [[fmt(v, cur)] for v in cp[mask]["Revenue"]]
+            trace.hovertemplate = "<b>%{x} — " + trace.name + "</b><br>Contracts: %{y:,}<br>Revenue: %{customdata[0]}<extra></extra>"
+        return fig
+
+    fig_ccp = build_contracts_country_product(rdf, f"Contracts by Country & Product")
+    fig_ccp_cmp = build_contracts_country_product(r_cmp, f"Contracts by Country & Product") if r_cmp is not None and len(r_cmp) > 0 else None
+    render_comparison(fig_ccp, fig_ccp_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
 
     # Drill-down button: navigate to Country Drill Down with region's countries
     region_countries = [c for c, r in COUNTRIES.items() if r == region_sel]
@@ -970,87 +1021,93 @@ elif page == "🏳️ Country Drill Down":
     render_metrics(cdf, cc_cmp, cur, cmp_label)
     st.markdown("---")
 
-    # 1. Contracts by Country (product as color)
-    cp = cdf.groupby(["Country", "Product Label"]).agg(
-        Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
-    ).reset_index()
-    cp.rename(columns={"Product Label": "Product"}, inplace=True)
-    cp["Revenue"] = cp["Revenue"].apply(lambda v: convert(v, cur))
-    fig_cp = go.Figure()
-    for prod_name in cp["Product"].unique():
-        pdata = cp[cp["Product"] == prod_name]
-        bar_colors = [get_product_country_color(prod_name, c) for c in pdata["Country"]]
-        fig_cp.add_trace(go.Bar(
-            x=pdata["Country"], y=pdata["Contracts"], name=prod_name,
-            marker_color=bar_colors,
-            text=[f"{int(c):,}" for c in pdata["Contracts"]],
-            textposition="outside", textfont=dict(size=10),
-            customdata=[[fmt(v, cur)] for v in pdata["Revenue"]],
-            hovertemplate=f"<b>%{{x}} — {prod_name}</b><br>Contracts: %{{y:,}}<br>Revenue: %{{customdata[0]}}<extra></extra>",
-        ))
-    _base_layout(fig_cp, 400)
-    fig_cp.update_layout(
-        title=f"Contracts by Country — {sel_label}",
-        barmode="group",
-        xaxis=dict(gridcolor=GRID_COLOR),
-        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
-    )
-    st.plotly_chart(fig_cp, use_container_width=True)
+    # 1. Contracts by Country
+    def build_country_contracts(source_df, title):
+        cp = source_df.groupby(["Country", "Product Label"]).agg(
+            Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
+        ).reset_index()
+        cp.rename(columns={"Product Label": "Product"}, inplace=True)
+        cp["Revenue"] = cp["Revenue"].apply(lambda v: convert(v, cur))
+        fig = go.Figure()
+        for prod_name in cp["Product"].unique():
+            pdata = cp[cp["Product"] == prod_name]
+            bar_colors = [get_product_country_color(prod_name, c) for c in pdata["Country"]]
+            fig.add_trace(go.Bar(
+                x=pdata["Country"], y=pdata["Contracts"], name=prod_name,
+                marker_color=bar_colors,
+                text=[f"{int(c):,}" for c in pdata["Contracts"]],
+                textposition="outside", textfont=dict(size=10),
+                customdata=[[fmt(v, cur)] for v in pdata["Revenue"]],
+                hovertemplate=f"<b>%{{x}} — {prod_name}</b><br>Contracts: %{{y:,}}<br>Revenue: %{{customdata[0]}}<extra></extra>",
+            ))
+        _base_layout(fig, 400)
+        fig.update_layout(title=title, barmode="group", xaxis=dict(gridcolor=GRID_COLOR),
+                          legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5))
+        return fig
 
-    # 2. Revenue by Country (paid + outstanding stacked, product as color)
-    rev = cdf.groupby(["Country", "Product Label"]).agg(
-        Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"),
-    ).reset_index()
-    rev.rename(columns={"Product Label": "Product"}, inplace=True)
-    rev = convert_cols(rev, ["Paid", "Outstanding"], cur)
-    fig_rev = go.Figure()
-    for prod_name in rev["Product"].unique():
-        pdata = rev[rev["Product"] == prod_name]
-        fig_rev.add_trace(go.Bar(
-            x=pdata["Country"], y=pdata["Paid"], name=f"Paid — {prod_name}",
-            marker_color=PAID_COLOR,
-            text=[fmt(v, cur) for v in pdata["Paid"]],
-            textposition="outside", textfont=dict(size=10),
-            hovertemplate=f"<b>%{{x}} — {prod_name}</b><br>Paid: %{{y}}<extra></extra>",
-        ))
-        fig_rev.add_trace(go.Bar(
-            x=pdata["Country"], y=pdata["Outstanding"], name=f"Pending — {prod_name}",
-            marker_color=OUTSTANDING_COLOR,
-            text=[fmt(v, cur) for v in pdata["Outstanding"]],
-            textposition="outside", textfont=dict(size=10),
-            hovertemplate=f"<b>%{{x}} — {prod_name}</b><br>Pending: %{{y}}<extra></extra>",
-        ))
-    _base_layout(fig_rev, 400)
-    fig_rev.update_layout(
-        title=f"Revenue by Country — {sel_label} ({cur})",
-        barmode="group",
-        xaxis=dict(gridcolor=GRID_COLOR),
-        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
-    )
-    st.plotly_chart(fig_rev, use_container_width=True)
+    fig_cc = build_country_contracts(cdf, f"Contracts — {sel_label}")
+    fig_cc_cmp = build_country_contracts(cc_cmp, f"Contracts — {sel_label}") if cc_cmp is not None and len(cc_cmp) > 0 else None
+    render_comparison(fig_cc, fig_cc_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
+
+    # 2. Revenue by Country
+    def build_country_revenue(source_df, title):
+        rev = source_df.groupby(["Country", "Product Label"]).agg(
+            Paid=("Paid", "sum"), Outstanding=("Outstanding", "sum"),
+        ).reset_index()
+        rev.rename(columns={"Product Label": "Product"}, inplace=True)
+        rev = convert_cols(rev, ["Paid", "Outstanding"], cur)
+        fig = go.Figure()
+        for prod_name in rev["Product"].unique():
+            pdata = rev[rev["Product"] == prod_name]
+            fig.add_trace(go.Bar(x=pdata["Country"], y=pdata["Paid"], name=f"Paid — {prod_name}",
+                                 marker_color=PAID_COLOR, text=[fmt(v, cur) for v in pdata["Paid"]],
+                                 textposition="outside", textfont=dict(size=10),
+                                 hovertemplate=f"<b>%{{x}} — {prod_name}</b><br>Paid: %{{y}}<extra></extra>"))
+            fig.add_trace(go.Bar(x=pdata["Country"], y=pdata["Outstanding"], name=f"Pending — {prod_name}",
+                                 marker_color=OUTSTANDING_COLOR, text=[fmt(v, cur) for v in pdata["Outstanding"]],
+                                 textposition="outside", textfont=dict(size=10),
+                                 hovertemplate=f"<b>%{{x}} — {prod_name}</b><br>Pending: %{{y}}<extra></extra>"))
+        _base_layout(fig, 400)
+        fig.update_layout(title=title, barmode="group", xaxis=dict(gridcolor=GRID_COLOR),
+                          legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5))
+        return fig
+
+    fig_cr = build_country_revenue(cdf, f"Revenue — {sel_label} ({cur})")
+    fig_cr_cmp = build_country_revenue(cc_cmp, f"Revenue — {sel_label} ({cur})") if cc_cmp is not None and len(cc_cmp) > 0 else None
+    render_comparison(fig_cr, fig_cr_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
 
     # 3. Top Clients
-    cl = cdf.groupby(["Country", "Client"]).agg(
-        Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
-    ).reset_index()
-    cl["Revenue"] = cl["Revenue"].apply(lambda v: convert(v, cur))
-    cl = cl.sort_values("Revenue", ascending=False).head(15)
-    fig_cl = go.Figure()
-    for country in cl["Country"].unique():
-        cdata = cl[cl["Country"] == country]
-        fig_cl.add_trace(go.Bar(
-            y=cdata["Client"], x=cdata["Revenue"], name=country,
-            orientation="h",
-            text=[fmt(v, cur) for v in cdata["Revenue"]],
-            textposition="outside", textfont=dict(size=10),
-            customdata=cdata[["Contracts"]].values,
-            hovertemplate=f"<b>%{{y}} — {country}</b><br>Revenue: %{{x}}<br>Contracts: %{{customdata[0]:,}}<extra></extra>",
-        ))
-    _base_layout(fig_cl, max(400, len(cl) * 30))
-    fig_cl.update_layout(
-        title=f"Top Clients — {sel_label} ({cur})",
-        barmode="group",
-        xaxis=dict(gridcolor=GRID_COLOR),
+    def build_top_clients(source_df, title):
+        cl = source_df.groupby(["Country", "Client"]).agg(
+            Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
+        ).reset_index()
+        cl["Revenue"] = cl["Revenue"].apply(lambda v: convert(v, cur))
+        cl = cl.sort_values("Revenue", ascending=False).head(15)
+        fig = go.Figure()
+        for country in cl["Country"].unique():
+            cdata = cl[cl["Country"] == country]
+            fig.add_trace(go.Bar(
+                y=cdata["Client"], x=cdata["Revenue"], name=country, orientation="h",
+                text=[fmt(v, cur) for v in cdata["Revenue"]], textposition="outside", textfont=dict(size=10),
+                customdata=cdata[["Contracts"]].values,
+                hovertemplate=f"<b>%{{y}} — {country}</b><br>Revenue: %{{x}}<br>Contracts: %{{customdata[0]:,}}<extra></extra>",
+            ))
+        _base_layout(fig, max(400, len(cl) * 30))
+        fig.update_layout(title=title, barmode="group", xaxis=dict(gridcolor=GRID_COLOR),
+                          legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5))
+        return fig
+
+    fig_tc = build_top_clients(cdf, f"Top Clients — {sel_label} ({cur})")
+    fig_tc_cmp = build_top_clients(cc_cmp, f"Top Clients — {sel_label} ({cur})") if cc_cmp is not None and len(cc_cmp) > 0 else None
+    render_comparison(fig_tc, fig_tc_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
+
+    # skip the old Top Clients rendering below
+    if False:
+        fig_cl = go.Figure()
+        fig_cl.update_layout(
+            title=f"Top Clients — {sel_label} ({cur})",
+            barmode="group",
+            xaxis=dict(gridcolor=GRID_COLOR),
         legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
     )
     st.plotly_chart(fig_cl, use_container_width=True)
@@ -1070,28 +1127,30 @@ elif page == "📦 Product Drill Down":
         render_metrics(pdf, cmp_filtered[cmp_filtered["Product"] == prod_sel] if cmp_filtered is not None else None, cur, cmp_label)
         st.markdown("---")
 
-        # 1. Revenue by Country (hover shows contract count)
-        cp = pdf.groupby("Country").agg(
-            Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
-        ).reset_index()
-        cp["Revenue"] = cp["Revenue"].apply(lambda v: convert(v, cur))
-        fig_cp = go.Figure()
-        bar_colors = [get_product_country_color(prod_sel, c) for c in cp["Country"]]
-        fig_cp.add_trace(go.Bar(
-            y=cp["Country"], x=cp["Revenue"], name=f"Revenue ({cur})",
-            orientation="h", marker_color=bar_colors,
-            text=[fmt(v, cur) for v in cp["Revenue"]],
-            textposition="outside", textfont=dict(size=11),
-            customdata=cp[["Contracts"]].values,
-            hovertemplate="<b>%{y}</b><br>Revenue: %{x}<br>Contracts: %{customdata[0]:,}<extra></extra>",
-        ))
-        _base_layout(fig_cp, max(300, len(cp) * 80))
-        fig_cp.update_layout(
-            title=f"Revenue by Country — {prod_sel}",
-            xaxis=dict(gridcolor=GRID_COLOR),
-            showlegend=False,
-        )
-        st.plotly_chart(fig_cp, use_container_width=True)
+        # 1. Revenue by Country
+        def build_prod_rev_country(source_df, title):
+            cp = source_df.groupby("Country").agg(
+                Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
+            ).reset_index()
+            cp["Revenue"] = cp["Revenue"].apply(lambda v: convert(v, cur))
+            fig = go.Figure()
+            bar_colors = [get_product_country_color(prod_sel, c) for c in cp["Country"]]
+            fig.add_trace(go.Bar(
+                y=cp["Country"], x=cp["Revenue"], name=f"Revenue ({cur})",
+                orientation="h", marker_color=bar_colors,
+                text=[fmt(v, cur) for v in cp["Revenue"]],
+                textposition="outside", textfont=dict(size=11),
+                customdata=cp[["Contracts"]].values,
+                hovertemplate="<b>%{y}</b><br>Revenue: %{x}<br>Contracts: %{customdata[0]:,}<extra></extra>",
+            ))
+            _base_layout(fig, max(300, len(cp) * 80))
+            fig.update_layout(title=title, xaxis=dict(gridcolor=GRID_COLOR), showlegend=False)
+            return fig
+
+        pdf_cmp = cmp_filtered[cmp_filtered["Product"] == prod_sel] if cmp_filtered is not None else None
+        fig_prc = build_prod_rev_country(pdf, f"Revenue by Country — {prod_sel}")
+        fig_prc_cmp = build_prod_rev_country(pdf_cmp, f"Revenue by Country — {prod_sel}") if pdf_cmp is not None and len(pdf_cmp) > 0 else None
+        render_comparison(fig_prc, fig_prc_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
 
         # 2. Plan breakdown — skip for EV (single plan)
         if prod_sel != "EV / Auto":
@@ -1128,31 +1187,32 @@ elif page == "📦 Product Drill Down":
 
         # 3. Top Clients (horizontal bar)
         st.markdown("---")
-        cl = pdf.groupby(["Country", "Client"]).agg(
-            Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
-        ).reset_index()
-        cl["Revenue"] = cl["Revenue"].apply(lambda v: convert(v, cur))
-        cl = cl.sort_values("Revenue", ascending=False).head(15)
-        prod_color = PRODUCT_COLORS.get(prod_sel, PRODUCT_DEFAULT_COLOR)
-        fig_cl = go.Figure()
-        for country in cl["Country"].unique():
-            cdata = cl[cl["Country"] == country]
-            fig_cl.add_trace(go.Bar(
-                y=cdata["Client"], x=cdata["Revenue"], name=country,
-                orientation="h", marker_color=prod_color,
-                text=[fmt(v, cur) for v in cdata["Revenue"]],
-                textposition="outside", textfont=dict(size=10),
-                customdata=cdata[["Contracts"]].values,
-                hovertemplate=f"<b>%{{y}} — {country}</b><br>Revenue: %{{x}}<br>Contracts: %{{customdata[0]:,}}<extra></extra>",
-            ))
-        _base_layout(fig_cl, max(400, len(cl) * 30))
-        fig_cl.update_layout(
-            title=f"Top Clients — {prod_sel} ({cur})",
-            barmode="group",
-            xaxis=dict(gridcolor=GRID_COLOR),
-            legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
-        )
-        st.plotly_chart(fig_cl, use_container_width=True)
+        def build_prod_top_clients(source_df, title):
+            cl = source_df.groupby(["Country", "Client"]).agg(
+                Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
+            ).reset_index()
+            cl["Revenue"] = cl["Revenue"].apply(lambda v: convert(v, cur))
+            cl = cl.sort_values("Revenue", ascending=False).head(15)
+            prod_color = PRODUCT_COLORS.get(prod_sel, PRODUCT_DEFAULT_COLOR)
+            fig = go.Figure()
+            for country in cl["Country"].unique():
+                cdata = cl[cl["Country"] == country]
+                fig.add_trace(go.Bar(
+                    y=cdata["Client"], x=cdata["Revenue"], name=country,
+                    orientation="h", marker_color=prod_color,
+                    text=[fmt(v, cur) for v in cdata["Revenue"]],
+                    textposition="outside", textfont=dict(size=10),
+                    customdata=cdata[["Contracts"]].values,
+                    hovertemplate=f"<b>%{{y}} — {country}</b><br>Revenue: %{{x}}<br>Contracts: %{{customdata[0]:,}}<extra></extra>",
+                ))
+            _base_layout(fig, max(400, len(cl) * 30))
+            fig.update_layout(title=title, barmode="group", xaxis=dict(gridcolor=GRID_COLOR),
+                              legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5))
+            return fig
+
+        fig_ptc = build_prod_top_clients(pdf, f"Top Clients — {prod_sel} ({cur})")
+        fig_ptc_cmp = build_prod_top_clients(pdf_cmp, f"Top Clients — {prod_sel} ({cur})") if pdf_cmp is not None and len(pdf_cmp) > 0 else None
+        render_comparison(fig_ptc, fig_ptc_cmp, f"{d_start} — {d_end}", f"{cmp_start} — {cmp_end}")
 
 # ─────────────────────────────────────────────
 # PAGE 5: EV WARRANTY ANALYSIS
