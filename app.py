@@ -130,8 +130,8 @@ PRODUCTS = {
             "Singapore": ["DBS Staff 2000", "DBS Staff 5000", "OCBC GA 12M A", "OCBC GA 12M B", "OCBC GA 12M C", "OCBC GA 12M D"],
         },
         "premiums": {
-            "DBS Staff 2000": 200,
-            "DBS Staff 5000": 450,
+            "DBS Staff 2000": 500,
+            "DBS Staff 5000": 800,
             "OCBC GA 12M A": 100,
             "OCBC GA 12M B": 150,
             "OCBC GA 12M C": 200,
@@ -242,6 +242,19 @@ def get_client(product, country, current_date=None):
             ("India", "Mahindra Trucks and Buses (MTB)"): 1,
         }
         weights = [ev_weights.get((country, c), 1) for c in clients]
+        return random.choices(clients, weights=weights, k=1)[0]
+    # IPI weighted client selection — GE > DBS > RQBE > Muang Thai by contracts
+    if product == "Income Protection":
+        ipi_weights = {
+            # Singapore
+            ("Singapore", "OCBC (GE)"): 55,
+            ("Singapore", "DBS (ECICS)"): 45,
+            # India
+            ("India", "Raheja (RQBE)"): 20,
+            # Thailand
+            ("Thailand", "Muang Thai"): 15,
+        }
+        weights = [ipi_weights.get((country, c), 1) for c in clients]
         return random.choices(clients, weights=weights, k=1)[0]
     return random.choice(clients)
 
@@ -365,12 +378,15 @@ def generate_data():
                 premium_sgd = random.uniform(premium_lo, premium_hi)
                 premium = round(premium_sgd / SGD_TO_USD)  # convert to USD
 
-                # Country distribution — weighted so Singapore dominates EV
+                # Country distribution — weighted per product
                 if prod == "Care Aqua":
                     country = "Europe"  # Aqua only sold in Europe
                 elif prod == "EV / Auto":
                     ev_countries = ["Singapore", "Thailand", "India"]
                     country = random.choices(ev_countries, weights=[60, 32, 8])[0]
+                elif prod == "Income Protection":
+                    ipi_countries = ["Singapore", "India", "Thailand"]
+                    country = random.choices(ipi_countries, weights=[70, 18, 12])[0]
                 else:
                     country = random.choice([c for c in COUNTRIES.keys() if c != "Europe"])
                 region = COUNTRIES[country]
@@ -379,6 +395,14 @@ def generate_data():
                 plan_type = get_plan_type(prod, plan)
                 ctype = plan_type if plan_type else random.choice(TYPES)
                 client = get_client(prod, country, current)
+                # Client-based premium adjustment for IPI
+                if prod == "Income Protection":
+                    if client == "DBS (ECICS)":
+                        premium_sgd = random.uniform(500, 800)  # DBS = high value policies
+                        premium = round(premium_sgd / SGD_TO_USD)
+                    elif client == "OCBC (GE)":
+                        premium_sgd = random.uniform(80, 200)  # GE = volume, lower premium
+                        premium = round(premium_sgd / SGD_TO_USD)
                 trantype = random.choice(TRAN_TYPES)
 
                 paid_pct = random.uniform(0.3, 1.0)
