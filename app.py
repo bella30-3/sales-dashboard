@@ -565,9 +565,9 @@ ACCENT_BLUE = "#29B6F6"
 
 # Product colours — consistent across all charts
 PRODUCT_COLORS = {
-    "Income Protection Insurance": "#1565C0",
-    "Electric Vehicles / Auto": "#00897B",
-    "Care - Aqua Warranty": "#D5FFFF",
+    "Income Protection Insurance": "#2E7D32",   # forest green
+    "Electric Vehicles / Auto": "#7B1FA2",      # deep violet
+    "Care - Aqua Warranty": "#039BE5",          # bright blue
 }
 PRODUCT_DEFAULT_COLOR = "#7B1FA2"
 PAID_COLOR = "#4FC3F7"
@@ -1131,12 +1131,13 @@ elif page == "📦 Product Drill Down":
         ).reset_index()
         cl["Revenue"] = cl["Revenue"].apply(lambda v: convert(v, cur))
         cl = cl.sort_values("Revenue", ascending=False).head(15)
+        prod_color = PRODUCT_COLORS.get(prod_sel, PRODUCT_DEFAULT_COLOR)
         fig_cl = go.Figure()
         for country in cl["Country"].unique():
             cdata = cl[cl["Country"] == country]
             fig_cl.add_trace(go.Bar(
                 y=cdata["Client"], x=cdata["Revenue"], name=country,
-                orientation="h",
+                orientation="h", marker_color=prod_color,
                 text=[fmt(v, cur) for v in cdata["Revenue"]],
                 textposition="outside", textfont=dict(size=10),
                 customdata=cdata[["Contracts"]].values,
