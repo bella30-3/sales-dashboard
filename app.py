@@ -48,50 +48,7 @@ st.markdown("""
     color: #203848;
 }
 
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #203848 0%, #2A4858 100%);
-    border-right: 1px solid #2A4858;
-}
 
-[data-testid="stSidebar"] .stMarkdown p,
-[data-testid="stSidebar"] .stMarkdown li,
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] .stCaption {
-    color: #FFFFFF !important;
-}
-
-[data-testid="stSidebar"] .stSelectbox label,
-[data-testid="stSidebar"] .stDateInput label,
-[data-testid="stSidebar"] .stMultiSelect label {
-    color: #E0E8F0 !important;
-}
-
-[data-testid="stSidebar"] .stRadio label span {
-    color: #D0E0F0 !important;
-}
-
-[data-testid="stSidebar"] .stRadio label[data-checked="true"] span {
-    color: #FFFFFF !important;
-    font-weight: 700;
-}
-
-[data-testid="stSidebar"] hr {
-    border-color: rgba(255,255,255,0.15) !important;
-}
-
-[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] {
-    color: #FFFFFF;
-}
-
-[data-testid="stSidebar"] h1,
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] h3 {
-    color: #FFFFFF !important;
-}
-
-[data-testid="stSidebar"] .stMarkdown a {
-    color: #80C0FF !important;
-}
 
 h1, h2, h3 {
     color: #203848 !important;
