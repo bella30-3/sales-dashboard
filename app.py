@@ -13,227 +13,122 @@ from currency import convert, fmt, currency_selector
 st.set_page_config(page_title="Sales Dashboard", layout="wide", initial_sidebar_state="expanded", page_icon="🌊")
 
 # ─────────────────────────────────────────────
-# THEMES
+# DARK THEME — single consistent look
 # ─────────────────────────────────────────────
-THEMES = {
-    "🎨 Fun": {
-        "sidebar_css": "linear-gradient(180deg, #F3E5F5 0%, #E8EAF6 50%, #E0F7FA 100%)",
-        "sidebar_border": "1px solid #E8EAF6",
-        "active_radio": "#7B1FA2",
-        "sidebar_hr": "rgba(123, 31, 162, 0.15)",
-        "heading_color": "#1A237E",
-        "metric_gradient": "linear-gradient(135deg, rgba(46, 125, 50, 0.06) 0%, rgba(123, 31, 162, 0.06) 50%, rgba(3, 155, 229, 0.06) 100%)",
-        "metric_border": "rgba(123, 31, 162, 0.1)",
-        "metric_value_color": "#1A237E",
-        "tab_active_bg": "linear-gradient(135deg, #7B1FA2 0%, #039BE5 100%)",
-        "tab_active_shadow": "rgba(123, 31, 162, 0.25)",
-        "tab_list_bg": "rgba(232, 234, 246, 0.4)",
-        "chart_title_color": "#1A237E",
-        "chart_bg": "rgba(123, 31, 162, 0.015)",
-        "chart_grid": "rgba(123, 31, 162, 0.06)",
-        "product_colors": {
-            "Income Protection Insurance": "#2E7D32",
-            "Electric Vehicles / Auto": "#7B1FA2",
-            "Care - Aqua Warranty": "#039BE5",
-        },
-        "paid_color": "#26A69A",
-        "outstanding_color": "#FF8A65",
-        "target_color": "#66BB6A",
-        "product_default": "#7B1FA2",
-    },
-    "👔 Executive": {
-        "sidebar_css": "linear-gradient(180deg, #1E3A5F 0%, #0F3460 100%)",
-        "sidebar_border": "1px solid #2D4A7A",
-        "active_radio": "#D4A017",
-        "sidebar_hr": "rgba(212, 160, 23, 0.3)",
-        "heading_color": "#1E3A5F",
-        "metric_gradient": "linear-gradient(135deg, rgba(30, 58, 95, 0.06) 0%, rgba(15, 118, 110, 0.06) 100%)",
-        "metric_border": "rgba(30, 58, 95, 0.12)",
-        "metric_value_color": "#1E3A5F",
-        "tab_active_bg": "linear-gradient(135deg, #1E3A5F 0%, #0F766E 100%)",
-        "tab_active_shadow": "rgba(30, 58, 95, 0.3)",
-        "tab_list_bg": "rgba(226, 232, 240, 0.5)",
-        "chart_title_color": "#1E3A5F",
-        "chart_bg": "rgba(30, 58, 95, 0.015)",
-        "chart_grid": "rgba(100, 116, 139, 0.1)",
-        "product_colors": {
-            "Income Protection Insurance": "#0F766E",
-            "Electric Vehicles / Auto": "#D4A017",
-            "Care - Aqua Warranty": "#60A5FA",
-        },
-        "paid_color": "#0F766E",
-        "outstanding_color": "#D4A017",
-        "target_color": "#64748B",
-        "product_default": "#64748B",
-        "sidebar_text_color": "#E2E8F0",
-        "sidebar_radio_color": "#CBD5E1",
-        "sidebar_radio_checked": "#D4A017",
-    },
-    "✨ Clean": {
-        "sidebar_css": "linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%)",
-        "sidebar_border": "1px solid #E2E8F0",
-        "active_radio": "#3B82F6",
-        "sidebar_hr": "rgba(59, 130, 246, 0.15)",
-        "heading_color": "#1E293B",
-        "metric_gradient": "linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%)",
-        "metric_border": "rgba(59, 130, 246, 0.1)",
-        "metric_value_color": "#1E293B",
-        "tab_active_bg": "linear-gradient(135deg, #3B82F6 0%, #10B981 100%)",
-        "tab_active_shadow": "rgba(59, 130, 246, 0.25)",
-        "tab_list_bg": "rgba(241, 245, 249, 0.6)",
-        "chart_title_color": "#1E293B",
-        "chart_bg": "rgba(59, 130, 246, 0.01)",
-        "chart_grid": "rgba(59, 130, 246, 0.07)",
-        "product_colors": {
-            "Income Protection Insurance": "#3B82F6",
-            "Electric Vehicles / Auto": "#1D4ED8",
-            "Care - Aqua Warranty": "#93C5FD",
-        },
-        "paid_color": "#10B981",
-        "outstanding_color": "#F59E0B",
-        "target_color": "#64748B",
-        "product_default": "#64748B",
-        "country_product_colors": {
-            ("Care - Aqua Warranty", "Europe"): "#93C5FD",
-            ("Income Protection Insurance", "Europe"): "#3B82F6",
-            ("Electric Vehicles / Auto", "Europe"): "#1D4ED8",
-            ("Care - Aqua Warranty", "Singapore"): "#6EE7B7",
-            ("Income Protection Insurance", "Singapore"): "#10B981",
-            ("Electric Vehicles / Auto", "Singapore"): "#047857",
-            ("Care - Aqua Warranty", "Thailand"): "#C4B5FD",
-            ("Income Protection Insurance", "Thailand"): "#8B5CF6",
-            ("Electric Vehicles / Auto", "Thailand"): "#5B21B6",
-            ("Care - Aqua Warranty", "India"): "#FCD34D",
-            ("Income Protection Insurance", "India"): "#F59E0B",
-            ("Electric Vehicles / Auto", "India"): "#B45309",
-        },
-    },
+ACCENT = "#00D4AA"       # teal accent — used for all bars
+ACCENT_LIGHT = "#33DDBB"
+ACCENT_MUTED = "rgba(0, 212, 170, 0.6)"
+PAID_COLOR = "#00D4AA"
+OUTSTANDING_COLOR = "#FF6B6B"
+TARGET_COLOR = "#FFD93D"
+BG_COLOR = "#0E1117"
+CARD_BG = "#1A1F2E"
+SIDEBAR_BG = "#151B28"
+TEXT_PRIMARY = "#E8ECF1"
+TEXT_SECONDARY = "#8B95A5"
+GRID_COLOR = "rgba(255,255,255,0.06)"
+HEADING_COLOR = "#FFFFFF"
+
+PRODUCT_COLORS = {
+    "Income Protection Insurance": ACCENT,
+    "Electric Vehicles / Auto": ACCENT,
+    "Care - Aqua Warranty": ACCENT,
 }
+PRODUCT_DEFAULT_COLOR = ACCENT
 
-# Theme selector (must be before CSS rendering)
-t_theme = st.sidebar.selectbox("🎨 Theme", list(THEMES.keys()), key="theme_sel")
-T = THEMES[t_theme]
-
-# Dynamic product colors
-PRODUCT_COLORS = T["product_colors"]
-PAID_COLOR = T["paid_color"]
-OUTSTANDING_COLOR = T["outstanding_color"]
-TARGET_COLOR = T["target_color"]
-PRODUCT_DEFAULT_COLOR = T["product_default"]
-BG_COLOR = T["chart_bg"]
-GRID_COLOR = T["chart_grid"]
-
-# Clean theme: country-specific product color lookup
 def get_product_country_color(product, country):
-    cpc = T.get("country_product_colors", {})
-    if (product, country) in cpc:
-        return cpc[(product, country)]
-    return PRODUCT_COLORS.get(product, PRODUCT_DEFAULT_COLOR)
+    return ACCENT
 
-# Dynamic CSS based on selected theme
-_is_exec = t_theme == "👔 Executive"
-_sidebar_text = T.get("sidebar_text_color", "#37474F")
-_sidebar_radio = T.get("sidebar_radio_color", "#455A64")
-_sidebar_checked = T.get("sidebar_radio_checked", T["active_radio"])
-
-st.markdown(f"""
+# Dark theme CSS
+st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-.stApp {{
+.stApp {
     font-family: 'Inter', sans-serif;
-    background: #FAFBFE;
-}}
+    background: #0E1117;
+    color: #E8ECF1;
+}
 
-[data-testid="stSidebar"] {{
-    background: {T['sidebar_css']};
-    border-right: {T['sidebar_border']};
-}}
+[data-testid="stSidebar"] {
+    background: #151B28;
+    border-right: 1px solid #1E2738;
+}
 
 [data-testid="stSidebar"] .stMarkdown p,
 [data-testid="stSidebar"] .stMarkdown li,
 [data-testid="stSidebar"] label,
-[data-testid="stSidebar"] .stCaption {{
-    color: {_sidebar_text} !important;
-}}
+[data-testid="stSidebar"] .stCaption {
+    color: #8B95A5 !important;
+}
 
-[data-testid="stSidebar"] .stRadio label span {{
-    color: {_sidebar_radio} !important;
-}}
+[data-testid="stSidebar"] .stRadio label span {
+    color: #8B95A5 !important;
+}
 
-[data-testid="stSidebar"] .stRadio label[data-checked="true"] span {{
-    color: {_sidebar_checked} !important;
+[data-testid="stSidebar"] .stRadio label[data-checked="true"] span {
+    color: #00D4AA !important;
     font-weight: 700;
-}}
+}
 
-[data-testid="stSidebar"] hr {{
-    border-color: {T['sidebar_hr']} !important;
-}}
+[data-testid="stSidebar"] hr {
+    border-color: rgba(0, 212, 170, 0.15) !important;
+}
 
-h1, h2, h3 {{
-    color: {T['heading_color']} !important;
+h1, h2, h3 {
+    color: #FFFFFF !important;
     font-weight: 700 !important;
-}}
+}
 
-.stMetric > div {{
-    background: {T['metric_gradient']};
-    border-radius: 14px;
-    padding: 12px 16px;
-    border: 1px solid {T['metric_border']};
-    backdrop-filter: blur(10px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    transition: transform 0.15s ease;
-}}
+.stMetric > div {
+    background: #1A1F2E;
+    border-radius: 12px;
+    padding: 14px 18px;
+    border: 1px solid #2A3040;
+}
 
-.stMetric > div:hover {{
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}}
-
-.stMetric label {{
+.stMetric label {
     font-size: 0.8rem !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.02em;
-}}
+    font-weight: 500 !important;
+    color: #8B95A5 !important;
+}
 
-.stMetric [data-testid="stMetricValue"] {{
-    font-size: 1.15rem !important;
+.stMetric [data-testid="stMetricValue"] {
+    font-size: 1.2rem !important;
     font-weight: 700 !important;
-    color: {T['metric_value_color']} !important;
-}}
+    color: #FFFFFF !important;
+}
 
-.stTabs [data-baseweb="tab-list"] {{
+.stTabs [data-baseweb="tab-list"] {
     gap: 6px;
     padding: 4px;
-    background: {T['tab_list_bg']};
-    border-radius: 12px;
-}}
-
-.stTabs [data-baseweb="tab"] {{
+    background: #151B28;
     border-radius: 10px;
+}
+
+.stTabs [data-baseweb="tab"] {
+    border-radius: 8px;
     padding: 8px 18px;
     font-weight: 500;
-    transition: all 0.2s ease;
-}}
+    color: #8B95A5;
+}
 
-.stTabs [aria-selected="true"] {{
-    background: {T['tab_active_bg']};
-    color: white !important;
-    box-shadow: 0 2px 8px {T['tab_active_shadow']};
-}}
+.stTabs [aria-selected="true"] {
+    background: #00D4AA;
+    color: #0E1117 !important;
+    font-weight: 700;
+}
 
-div[data-testid="stDataFrame"] {{
-    border-radius: 12px;
+div[data-testid="stDataFrame"] {
+    border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-}}
+}
 
-.stPlotlyChart {{
+.stPlotlyChart {
     border-radius: 12px;
-    background: white;
-    padding: 4px;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
-}}
+    background: #1A1F2E;
+    padding: 8px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -701,33 +596,24 @@ st.sidebar.caption(f"Premium: **{fmt(convert(df_filtered['Annual Premium'].sum()
 # ─────────────────────────────────────────────
 # THEME — Cute Futuristic Blue
 # ─────────────────────────────────────────────
-PALETTE = [
-    "#4FC3F7",  # sky blue
-    "#81D4FA",  # light blue
-    "#80DEEA",  # cyan
-    "#B39DDB",  # soft purple
-    "#CE93D8",  # lavender
-    "#F48FB1",  # pink
-    "#FFD54F",  # warm yellow
-    "#A5D6A7",  # mint green
-]
-PALETTE_BARS = ["#4FC3F7", "#80DEEA", "#B39DDB", "#F48FB1", "#FFD54F", "#A5D6A7"]
+PALETTE = ["#00D4AA"]
+PALETTE_BARS = ["#00D4AA"]
 
 
 def _base_layout(fig, height=420):
     fig.update_layout(
         height=height,
         title_font_size=16,
-        title_font_color=T.get("chart_title_color", "#1A237E"),
+        title_font_color="#FFFFFF",
         xaxis_title="",
         yaxis_title="",
         legend_title="",
-        plot_bgcolor=BG_COLOR,
+        plot_bgcolor="rgba(26, 31, 46, 0.5)",
         paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, sans-serif", color="#37474F", size=13),
-        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR),
-        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR),
-        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
+        font=dict(family="Inter, sans-serif", color="#8B95A5", size=13),
+        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color="#8B95A5"),
+        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color="#8B95A5"),
+        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5, font=dict(color="#8B95A5")),
         margin=dict(t=60, b=50, l=60, r=30),
     )
     return fig
@@ -745,7 +631,7 @@ def empty_state(title="No data available"):
         annotations=[dict(
             text="No data for selected filters",
             xref="paper", yref="paper", x=0.5, y=0.5,
-            showarrow=False, font=dict(size=16, color="#90A4AE"),
+            showarrow=False, font=dict(size=16, color="#8B95A5"),
         )],
     )
     return fig
@@ -842,7 +728,7 @@ def premium_chart(agg, group_col, title, currency, height=420):
             x=x_val, y=total,
             text=f"<b>{fmt(total, currency)}</b>",
             showarrow=False, yshift=20,
-            font=dict(size=12, color="#37474F"),
+            font=dict(size=12, color="#8B95A5"),
             align="center",
         )
     _base_layout(fig, height)
@@ -876,15 +762,15 @@ def premium_chart_compare(merged, group_col, title, currency, cmp_label="", heig
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Paid_cmp"], name=f"Paid ({cmp_label})",
-        marker_color="rgba(79, 195, 247, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
+        marker_color="rgba(0, 212, 170, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
         text=[fmt(v, currency) for v in merged["Paid_cmp"]],
-        textposition="inside", textfont=dict(size=10, color="#37474F"),
+        textposition="inside", textfont=dict(size=10, color="#8B95A5"),
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Outstanding_cmp"], name=f"Outstanding ({cmp_label})",
         marker_color="rgba(206, 147, 216, 0.35)", marker_line=dict(width=1, color=OUTSTANDING_COLOR),
         text=[fmt(v, currency) for v in merged["Outstanding_cmp"]],
-        textposition="inside", textfont=dict(size=10, color="#37474F"),
+        textposition="inside", textfont=dict(size=10, color="#8B95A5"),
     ))
     _base_layout(fig, height)
     fig.update_layout(barmode="group", margin=dict(t=50))
@@ -908,7 +794,7 @@ def bar_chart_compare(merged, group_col, y_curr, y_cmp, title, currency, cmp_lab
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged[y_cmp], name=cmp_label,
-        marker_color="rgba(79, 195, 247, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
+        marker_color="rgba(0, 212, 170, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
         text=[fmt(v, currency) for v in merged[y_cmp]],
         textposition="outside", textfont=dict(size=11),
     ))
@@ -978,7 +864,7 @@ if page == "🌍 Executive Summary":
             x=xm, y=ym,
             text=f"<b>{_fmt_val(ym)}</b><br>{cm:,} contracts",
             showarrow=False, yshift=15,
-            font=dict(size=10, color="#37474F"),
+            font=dict(size=10, color="#8B95A5"),
             align="center",
         )
     _base_layout(fig_m, 400)
