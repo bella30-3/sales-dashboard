@@ -39,8 +39,8 @@ PRODUCT_DEFAULT_COLOR = ACCENT
 COUNTRY_COLORS = {
     "Singapore": "#E04050",   # pink-red
     "Thailand": "#3050F0",   # secondary blue
-    "India": "#F02050",      # accent red
-    "Europe": "#F0B020",     # yellow-orange
+    "India": "#F0B020",      # amber/gold
+    "Europe": "#60B0A0",     # teal/aqua
 }
 COUNTRY_DEFAULT_COLOR = "#3360F0"
 
