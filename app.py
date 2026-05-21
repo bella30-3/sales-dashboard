@@ -109,6 +109,27 @@ THEMES = {
         },
     },
 }
+
+# Theme selector (must be before CSS rendering)
+t_theme = st.sidebar.selectbox("🎨 Theme", list(THEMES.keys()), key="theme_sel")
+T = THEMES[t_theme]
+
+# Dynamic product colors
+PRODUCT_COLORS = T["product_colors"]
+PAID_COLOR = T["paid_color"]
+OUTSTANDING_COLOR = T["outstanding_color"]
+TARGET_COLOR = T["target_color"]
+PRODUCT_DEFAULT_COLOR = T["product_default"]
+BG_COLOR = T["chart_bg"]
+GRID_COLOR = T["chart_grid"]
+
+# Clean theme: country-specific product color lookup
+def get_product_country_color(product, country):
+    cpc = T.get("country_product_colors", {})
+    if (product, country) in cpc:
+        return cpc[(product, country)]
+    return PRODUCT_COLORS.get(product, PRODUCT_DEFAULT_COLOR)
+
 # Dynamic CSS based on selected theme
 _is_exec = t_theme == "👔 Executive"
 _sidebar_text = T.get("sidebar_text_color", "#37474F")
@@ -568,26 +589,6 @@ df = load_data()
 # ─────────────────────────────────────────────
 st.sidebar.title("📊 Sales Dashboard")
 st.sidebar.markdown("---")
-
-# Theme selector
-t_theme = st.sidebar.selectbox("🎨 Theme", list(THEMES.keys()), key="theme_sel")
-T = THEMES[t_theme]
-
-# Dynamic product colors
-PRODUCT_COLORS = T["product_colors"]
-PAID_COLOR = T["paid_color"]
-OUTSTANDING_COLOR = T["outstanding_color"]
-TARGET_COLOR = T["target_color"]
-PRODUCT_DEFAULT_COLOR = T["product_default"]
-BG_COLOR = T["chart_bg"]
-GRID_COLOR = T["chart_grid"]
-
-# Clean theme: country-specific product color lookup
-def get_product_country_color(product, country):
-    cpc = T.get("country_product_colors", {})
-    if (product, country) in cpc:
-        return cpc[(product, country)]
-    return PRODUCT_COLORS.get(product, PRODUCT_DEFAULT_COLOR)
 
 cur = currency_selector("Display Currency", "app_currency")
 
