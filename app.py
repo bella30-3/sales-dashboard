@@ -15,19 +15,17 @@ st.set_page_config(page_title="Sales Dashboard", layout="wide", initial_sidebar_
 # ─────────────────────────────────────────────
 # DARK THEME — single consistent look
 # ─────────────────────────────────────────────
-ACCENT = "#00D4AA"       # teal accent — used for all bars
-ACCENT_LIGHT = "#33DDBB"
-ACCENT_MUTED = "rgba(0, 212, 170, 0.6)"
-PAID_COLOR = "#00D4AA"
-OUTSTANDING_COLOR = "#FF6B6B"
-TARGET_COLOR = "#FFD93D"
-BG_COLOR = "#0E1117"
-CARD_BG = "#1A1F2E"
-SIDEBAR_BG = "#151B28"
-TEXT_PRIMARY = "#E8ECF1"
-TEXT_SECONDARY = "#8B95A5"
-GRID_COLOR = "rgba(255,255,255,0.06)"
-HEADING_COLOR = "#FFFFFF"
+ACCENT = "#2860F8"              # bright blue — primary bars
+PAID_COLOR = "#2860F8"
+OUTSTANDING_COLOR = "#F02850"    # coral
+TARGET_COLOR = "#30B8A0"         # teal
+BG_COLOR = "#F8F8F8"
+CARD_BG = "#FFFFFF"
+SIDEBAR_BG = "#203848"
+TEXT_PRIMARY = "#203848"
+TEXT_SECONDARY = "#6B7B8D"
+GRID_COLOR = "rgba(0,0,0,0.06)"
+HEADING_COLOR = "#203848"
 
 PRODUCT_COLORS = {
     "Income Protection Insurance": ACCENT,
@@ -46,63 +44,64 @@ st.markdown("""
 
 .stApp {
     font-family: 'Inter', sans-serif;
-    background: #0E1117;
-    color: #E8ECF1;
+    background: #F8F8F8;
+    color: #203848;
 }
 
 [data-testid="stSidebar"] {
-    background: #151B28;
-    border-right: 1px solid #1E2738;
+    background: linear-gradient(180deg, #203848 0%, #2A4858 100%);
+    border-right: 1px solid #2A4858;
 }
 
 [data-testid="stSidebar"] .stMarkdown p,
 [data-testid="stSidebar"] .stMarkdown li,
 [data-testid="stSidebar"] label,
 [data-testid="stSidebar"] .stCaption {
-    color: #8B95A5 !important;
+    color: #C0D0E0 !important;
 }
 
 [data-testid="stSidebar"] .stRadio label span {
-    color: #8B95A5 !important;
+    color: #A0B8C8 !important;
 }
 
 [data-testid="stSidebar"] .stRadio label[data-checked="true"] span {
-    color: #00D4AA !important;
+    color: #FFFFFF !important;
     font-weight: 700;
 }
 
 [data-testid="stSidebar"] hr {
-    border-color: rgba(0, 212, 170, 0.15) !important;
+    border-color: rgba(255,255,255,0.1) !important;
 }
 
 h1, h2, h3 {
-    color: #FFFFFF !important;
+    color: #203848 !important;
     font-weight: 700 !important;
 }
 
 .stMetric > div {
-    background: #1A1F2E;
-    border-radius: 12px;
+    background: #FFFFFF;
+    border-radius: 10px;
     padding: 14px 18px;
-    border: 1px solid #2A3040;
+    border: 1px solid #E0E8F0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 .stMetric label {
     font-size: 0.8rem !important;
     font-weight: 500 !important;
-    color: #8B95A5 !important;
+    color: #6B7B8D !important;
 }
 
 .stMetric [data-testid="stMetricValue"] {
     font-size: 1.2rem !important;
     font-weight: 700 !important;
-    color: #FFFFFF !important;
+    color: #203848 !important;
 }
 
 .stTabs [data-baseweb="tab-list"] {
     gap: 6px;
     padding: 4px;
-    background: #151B28;
+    background: #F0F4F8;
     border-radius: 10px;
 }
 
@@ -110,12 +109,12 @@ h1, h2, h3 {
     border-radius: 8px;
     padding: 8px 18px;
     font-weight: 500;
-    color: #8B95A5;
+    color: #6B7B8D;
 }
 
 .stTabs [aria-selected="true"] {
-    background: #00D4AA;
-    color: #0E1117 !important;
+    background: #2860F8;
+    color: #FFFFFF !important;
     font-weight: 700;
 }
 
@@ -126,8 +125,9 @@ div[data-testid="stDataFrame"] {
 
 .stPlotlyChart {
     border-radius: 12px;
-    background: #1A1F2E;
-    padding: 8px;
+    background: #FFFFFF;
+    padding: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -596,24 +596,24 @@ st.sidebar.caption(f"Premium: **{fmt(convert(df_filtered['Annual Premium'].sum()
 # ─────────────────────────────────────────────
 # THEME — Cute Futuristic Blue
 # ─────────────────────────────────────────────
-PALETTE = ["#00D4AA"]
-PALETTE_BARS = ["#00D4AA"]
+PALETTE = ["#2860F8"]
+PALETTE_BARS = ["#2860F8"]
 
 
 def _base_layout(fig, height=420):
     fig.update_layout(
         height=height,
         title_font_size=16,
-        title_font_color="#FFFFFF",
+        title_font_color="#203848",
         xaxis_title="",
         yaxis_title="",
         legend_title="",
-        plot_bgcolor="rgba(26, 31, 46, 0.5)",
+        plot_bgcolor="rgba(248, 248, 248, 0.5)",
         paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, sans-serif", color="#8B95A5", size=13),
-        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color="#8B95A5"),
-        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color="#8B95A5"),
-        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5, font=dict(color="#8B95A5")),
+        font=dict(family="Inter, sans-serif", color="#6B7B8D", size=13),
+        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color="#6B7B8D"),
+        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color="#6B7B8D"),
+        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5, font=dict(color="#6B7B8D")),
         margin=dict(t=60, b=50, l=60, r=30),
     )
     return fig
@@ -631,7 +631,7 @@ def empty_state(title="No data available"):
         annotations=[dict(
             text="No data for selected filters",
             xref="paper", yref="paper", x=0.5, y=0.5,
-            showarrow=False, font=dict(size=16, color="#8B95A5"),
+            showarrow=False, font=dict(size=16, color="#6B7B8D"),
         )],
     )
     return fig
@@ -728,7 +728,7 @@ def premium_chart(agg, group_col, title, currency, height=420):
             x=x_val, y=total,
             text=f"<b>{fmt(total, currency)}</b>",
             showarrow=False, yshift=20,
-            font=dict(size=12, color="#8B95A5"),
+            font=dict(size=12, color="#6B7B8D"),
             align="center",
         )
     _base_layout(fig, height)
@@ -762,15 +762,15 @@ def premium_chart_compare(merged, group_col, title, currency, cmp_label="", heig
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Paid_cmp"], name=f"Paid ({cmp_label})",
-        marker_color="rgba(0, 212, 170, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
+        marker_color="rgba(40, 96, 248, 0.25)", marker_line=dict(width=1, color=PAID_COLOR),
         text=[fmt(v, currency) for v in merged["Paid_cmp"]],
-        textposition="inside", textfont=dict(size=10, color="#8B95A5"),
+        textposition="inside", textfont=dict(size=10, color="#6B7B8D"),
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged["Outstanding_cmp"], name=f"Outstanding ({cmp_label})",
         marker_color="rgba(206, 147, 216, 0.35)", marker_line=dict(width=1, color=OUTSTANDING_COLOR),
         text=[fmt(v, currency) for v in merged["Outstanding_cmp"]],
-        textposition="inside", textfont=dict(size=10, color="#8B95A5"),
+        textposition="inside", textfont=dict(size=10, color="#6B7B8D"),
     ))
     _base_layout(fig, height)
     fig.update_layout(barmode="group", margin=dict(t=50))
@@ -794,7 +794,7 @@ def bar_chart_compare(merged, group_col, y_curr, y_cmp, title, currency, cmp_lab
     ))
     fig.add_trace(go.Bar(
         x=merged[group_col], y=merged[y_cmp], name=cmp_label,
-        marker_color="rgba(0, 212, 170, 0.35)", marker_line=dict(width=1, color=PAID_COLOR),
+        marker_color="rgba(40, 96, 248, 0.25)", marker_line=dict(width=1, color=PAID_COLOR),
         text=[fmt(v, currency) for v in merged[y_cmp]],
         textposition="outside", textfont=dict(size=11),
     ))
@@ -864,7 +864,7 @@ if page == "🌍 Executive Summary":
             x=xm, y=ym,
             text=f"<b>{_fmt_val(ym)}</b><br>{cm:,} contracts",
             showarrow=False, yshift=15,
-            font=dict(size=10, color="#8B95A5"),
+            font=dict(size=10, color="#6B7B8D"),
             align="center",
         )
     _base_layout(fig_m, 400)
