@@ -533,6 +533,14 @@ PALETTE = [
 ]
 PALETTE_BARS = ["#4FC3F7", "#80DEEA", "#B39DDB", "#F48FB1", "#FFD54F", "#A5D6A7"]
 ACCENT_BLUE = "#29B6F6"
+
+# Product colours — consistent across all charts
+PRODUCT_COLORS = {
+    "Care - Aqua Warranty": "#1565C0",       # blue
+    "Electric Vehicles / Auto": "#105EE1",    # navy blue
+    "Income Protection Insurance": "#4CAF50", # green
+}
+PRODUCT_DEFAULT_COLOR = "#7B1FA2"             # violet for anything else
 PAID_COLOR = "#4FC3F7"
 OUTSTANDING_COLOR = "#CE93D8"
 TARGET_COLOR = "#66BB6A"  # Green for target line
@@ -586,14 +594,18 @@ def _fmt_val(v):
     else:
         return f"{v:,.0f}"
 
-def bar_chart(data, x, y, title, color=None, barmode="group", height=420):
+def bar_chart(data, x, y, title, color=None, barmode="group", height=420, color_map=None):
     title = str(title) if title else ""
     data = data.dropna(subset=[x]).copy()
     data[y] = data[y].fillna(0)
     if data.empty:
         return empty_state(title)
-    fig = px.bar(data, x=x, y=y, color=color, title=title, barmode=barmode,
-                 color_discrete_sequence=PALETTE)
+    if color_map:
+        fig = px.bar(data, x=x, y=y, color=color, title=title, barmode=barmode,
+                     color_discrete_map=color_map)
+    else:
+        fig = px.bar(data, x=x, y=y, color=color, title=title, barmode=barmode,
+                     color_discrete_sequence=PALETTE)
     # Per-trace annotations instead of text= (avoids NaN → "undefined")
     fig.update_traces(textposition="outside", textfont_size=13)
     for trace in fig.data:
@@ -766,13 +778,13 @@ if page == "🌍 Executive Summary":
     # 1. Contracts by Product
     pc = df_filtered.groupby("Product Label")["Contract ID"].count().reset_index()
     pc.columns = ["Product", "Contracts"]
-    st.plotly_chart(bar_chart(pc, "Product", "Contracts", "Contracts by Product"), use_container_width=True)
+    st.plotly_chart(bar_chart(pc, "Product", "Contracts", "Contracts by Product", color_map=PRODUCT_COLORS), use_container_width=True)
 
     # 2. Revenue by Product
     rev = df_filtered.groupby("Product Label")["Annual Premium"].sum().reset_index()
     rev.columns = ["Product", "Premium"]
     rev["Premium"] = rev["Premium"].apply(lambda v: convert(v, cur))
-    st.plotly_chart(bar_chart(rev, "Product", "Premium", f"Revenue by Product ({cur})"), use_container_width=True)
+    st.plotly_chart(bar_chart(rev, "Product", "Premium", f"Revenue by Product ({cur})", color_map=PRODUCT_COLORS), use_container_width=True)
 
     # 3. Revenue Breakdown by Product
     st.markdown("---")
@@ -816,15 +828,10 @@ if page == "🌍 Executive Summary":
     mp["Month"] = mp["YearMonth"].apply(lambda ym: datetime.strptime(ym, "%Y-%m").strftime("%b %Y"))
     mp.rename(columns={"Product Label": "Product"}, inplace=True)
 
-    PRODUCT_COLORS = {
-        "Income Protection Insurance": "#1565C0",
-        "Electric Vehicles / Auto": "#00897B",
-        "Care - Aqua Warranty": "#7B1FA2",
-    }
     fig_mp = go.Figure()
     for prod_name in mp["Product"].unique():
         pp = mp[mp["Product"] == prod_name].sort_values("YearMonth")
-        color = PRODUCT_COLORS.get(prod_name, PALETTE[0])
+        color = PRODUCT_COLORS.get(prod_name, PRODUCT_DEFAULT_COLOR)
         fig_mp.add_trace(go.Scatter(
             x=pp["Month"], y=pp["Premium"], name=prod_name,
             mode="lines+markers",
@@ -865,7 +872,7 @@ elif page == "🗺️ Region Drill Down":
     ).reset_index()
     rp.columns = ["Product", "Contracts", "Revenue"]
     rp["Revenue"] = rp["Revenue"].apply(lambda v: convert(v, cur))
-    fig_c = bar_chart(rp[["Product", "Contracts"]], "Product", "Contracts", f"Contracts — {region_sel}")
+    fig_c = bar_chart(rp[["Product", "Contracts"]], "Product", "Contracts", f"Contracts — {region_sel}", color_map=PRODUCT_COLORS)
     fig_c.update_traces(
         hovertemplate="<b>%{x}</b><br>Contracts: %{y:,}<br>Revenue: %{customdata}<extra></extra>",
         customdata=[fmt(v, cur) for v in rp["Revenue"]],
@@ -902,7 +909,7 @@ elif page == "🗺️ Region Drill Down":
     ).reset_index()
     cp.columns = ["Country", "Product", "Contracts", "Revenue"]
     cp["Revenue"] = cp["Revenue"].apply(lambda v: convert(v, cur))
-    fig_cp = bar_chart(cp[["Country", "Product", "Contracts"]], "Country", "Contracts", f"Contracts by Country & Product", color="Product")
+    fig_cp = bar_chart(cp[["Country", "Product", "Contracts"]], "Country", "Contracts", f"Contracts by Country & Product", color="Product", color_map=PRODUCT_COLORS)
     for trace in fig_cp.data:
         mask = cp["Product"] == trace.name
         trace.customdata = [[fmt(v, cur)] for v in cp[mask]["Revenue"]]
@@ -942,8 +949,10 @@ elif page == "🏳️ Country Drill Down":
     fig_cp = go.Figure()
     for prod_name in cp["Product"].unique():
         pdata = cp[cp["Product"] == prod_name]
+        prod_color = PRODUCT_COLORS.get(prod_name, PRODUCT_DEFAULT_COLOR)
         fig_cp.add_trace(go.Bar(
             x=pdata["Country"], y=pdata["Contracts"], name=prod_name,
+            marker_color=prod_color,
             text=[f"{int(c):,}" for c in pdata["Contracts"]],
             textposition="outside", textfont=dict(size=10),
             customdata=[[fmt(v, cur)] for v in pdata["Revenue"]],
