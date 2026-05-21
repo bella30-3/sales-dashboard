@@ -12,110 +12,207 @@ from currency import convert, fmt, currency_selector
 # ─────────────────────────────────────────────
 st.set_page_config(page_title="Sales Dashboard", layout="wide", initial_sidebar_state="expanded", page_icon="🌊")
 
-# Custom CSS — vibrant fun theme
-st.markdown("""
+# ─────────────────────────────────────────────
+# THEMES
+# ─────────────────────────────────────────────
+THEMES = {
+    "🎨 Fun": {
+        "sidebar_css": "linear-gradient(180deg, #F3E5F5 0%, #E8EAF6 50%, #E0F7FA 100%)",
+        "sidebar_border": "1px solid #E8EAF6",
+        "active_radio": "#7B1FA2",
+        "sidebar_hr": "rgba(123, 31, 162, 0.15)",
+        "heading_color": "#1A237E",
+        "metric_gradient": "linear-gradient(135deg, rgba(46, 125, 50, 0.06) 0%, rgba(123, 31, 162, 0.06) 50%, rgba(3, 155, 229, 0.06) 100%)",
+        "metric_border": "rgba(123, 31, 162, 0.1)",
+        "metric_value_color": "#1A237E",
+        "tab_active_bg": "linear-gradient(135deg, #7B1FA2 0%, #039BE5 100%)",
+        "tab_active_shadow": "rgba(123, 31, 162, 0.25)",
+        "tab_list_bg": "rgba(232, 234, 246, 0.4)",
+        "chart_title_color": "#1A237E",
+        "chart_bg": "rgba(123, 31, 162, 0.015)",
+        "chart_grid": "rgba(123, 31, 162, 0.06)",
+        "product_colors": {
+            "Income Protection Insurance": "#2E7D32",
+            "Electric Vehicles / Auto": "#7B1FA2",
+            "Care - Aqua Warranty": "#039BE5",
+        },
+        "paid_color": "#26A69A",
+        "outstanding_color": "#FF8A65",
+        "target_color": "#66BB6A",
+        "product_default": "#7B1FA2",
+    },
+    "👔 Executive": {
+        "sidebar_css": "linear-gradient(180deg, #1E3A5F 0%, #0F3460 100%)",
+        "sidebar_border": "1px solid #2D4A7A",
+        "active_radio": "#D4A017",
+        "sidebar_hr": "rgba(212, 160, 23, 0.3)",
+        "heading_color": "#1E3A5F",
+        "metric_gradient": "linear-gradient(135deg, rgba(30, 58, 95, 0.06) 0%, rgba(15, 118, 110, 0.06) 100%)",
+        "metric_border": "rgba(30, 58, 95, 0.12)",
+        "metric_value_color": "#1E3A5F",
+        "tab_active_bg": "linear-gradient(135deg, #1E3A5F 0%, #0F766E 100%)",
+        "tab_active_shadow": "rgba(30, 58, 95, 0.3)",
+        "tab_list_bg": "rgba(226, 232, 240, 0.5)",
+        "chart_title_color": "#1E3A5F",
+        "chart_bg": "rgba(30, 58, 95, 0.015)",
+        "chart_grid": "rgba(100, 116, 139, 0.1)",
+        "product_colors": {
+            "Income Protection Insurance": "#0F766E",
+            "Electric Vehicles / Auto": "#D4A017",
+            "Care - Aqua Warranty": "#60A5FA",
+        },
+        "paid_color": "#0F766E",
+        "outstanding_color": "#D4A017",
+        "target_color": "#64748B",
+        "product_default": "#64748B",
+        "sidebar_text_color": "#E2E8F0",
+        "sidebar_radio_color": "#CBD5E1",
+        "sidebar_radio_checked": "#D4A017",
+    },
+    "✨ Clean": {
+        "sidebar_css": "linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%)",
+        "sidebar_border": "1px solid #E2E8F0",
+        "active_radio": "#3B82F6",
+        "sidebar_hr": "rgba(59, 130, 246, 0.15)",
+        "heading_color": "#1E293B",
+        "metric_gradient": "linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%)",
+        "metric_border": "rgba(59, 130, 246, 0.1)",
+        "metric_value_color": "#1E293B",
+        "tab_active_bg": "linear-gradient(135deg, #3B82F6 0%, #10B981 100%)",
+        "tab_active_shadow": "rgba(59, 130, 246, 0.25)",
+        "tab_list_bg": "rgba(241, 245, 249, 0.6)",
+        "chart_title_color": "#1E293B",
+        "chart_bg": "rgba(59, 130, 246, 0.01)",
+        "chart_grid": "rgba(59, 130, 246, 0.07)",
+        "product_colors": {
+            "Income Protection Insurance": "#3B82F6",
+            "Electric Vehicles / Auto": "#1D4ED8",
+            "Care - Aqua Warranty": "#93C5FD",
+        },
+        "paid_color": "#10B981",
+        "outstanding_color": "#F59E0B",
+        "target_color": "#64748B",
+        "product_default": "#64748B",
+        "country_product_colors": {
+            ("Care - Aqua Warranty", "Europe"): "#93C5FD",
+            ("Income Protection Insurance", "Europe"): "#3B82F6",
+            ("Electric Vehicles / Auto", "Europe"): "#1D4ED8",
+            ("Care - Aqua Warranty", "Singapore"): "#6EE7B7",
+            ("Income Protection Insurance", "Singapore"): "#10B981",
+            ("Electric Vehicles / Auto", "Singapore"): "#047857",
+            ("Care - Aqua Warranty", "Thailand"): "#C4B5FD",
+            ("Income Protection Insurance", "Thailand"): "#8B5CF6",
+            ("Electric Vehicles / Auto", "Thailand"): "#5B21B6",
+            ("Care - Aqua Warranty", "India"): "#FCD34D",
+            ("Income Protection Insurance", "India"): "#F59E0B",
+            ("Electric Vehicles / Auto", "India"): "#B45309",
+        },
+    },
+}
+# Dynamic CSS based on selected theme
+_is_exec = t_theme == "👔 Executive"
+_sidebar_text = T.get("sidebar_text_color", "#37474F")
+_sidebar_radio = T.get("sidebar_radio_color", "#455A64")
+_sidebar_checked = T.get("sidebar_radio_checked", T["active_radio"])
+
+st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-.stApp {
+.stApp {{
     font-family: 'Inter', sans-serif;
     background: #FAFBFE;
-}
+}}
 
-/* Sidebar — soft purple-pink gradient */
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #F3E5F5 0%, #E8EAF6 50%, #E0F7FA 100%);
-    border-right: 1px solid #E8EAF6;
-}
+[data-testid="stSidebar"] {{
+    background: {T['sidebar_css']};
+    border-right: {T['sidebar_border']};
+}}
 
 [data-testid="stSidebar"] .stMarkdown p,
 [data-testid="stSidebar"] .stMarkdown li,
 [data-testid="stSidebar"] label,
-[data-testid="stSidebar"] .stCaption {
-    color: #37474F !important;
-}
+[data-testid="stSidebar"] .stCaption {{
+    color: {_sidebar_text} !important;
+}}
 
-[data-testid="stSidebar"] .stRadio label span {
-    color: #455A64 !important;
-}
+[data-testid="stSidebar"] .stRadio label span {{
+    color: {_sidebar_radio} !important;
+}}
 
-[data-testid="stSidebar"] .stRadio label[data-checked="true"] span {
-    color: #7B1FA2 !important;
+[data-testid="stSidebar"] .stRadio label[data-checked="true"] span {{
+    color: {_sidebar_checked} !important;
     font-weight: 700;
-}
+}}
 
-[data-testid="stSidebar"] hr {
-    border-color: rgba(123, 31, 162, 0.15) !important;
-}
+[data-testid="stSidebar"] hr {{
+    border-color: {T['sidebar_hr']} !important;
+}}
 
-/* Headings — deep navy */
-h1, h2, h3 {
-    color: #1A237E !important;
+h1, h2, h3 {{
+    color: {T['heading_color']} !important;
     font-weight: 700 !important;
-}
+}}
 
-/* Metric cards — glassmorphism with product-inspired gradient */
-.stMetric > div {
-    background: linear-gradient(135deg, rgba(46, 125, 50, 0.06) 0%, rgba(123, 31, 162, 0.06) 50%, rgba(3, 155, 229, 0.06) 100%);
+.stMetric > div {{
+    background: {T['metric_gradient']};
     border-radius: 14px;
     padding: 12px 16px;
-    border: 1px solid rgba(123, 31, 162, 0.1);
+    border: 1px solid {T['metric_border']};
     backdrop-filter: blur(10px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     transition: transform 0.15s ease;
-}
+}}
 
-.stMetric > div:hover {
+.stMetric > div:hover {{
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
+}}
 
-.stMetric label {
+.stMetric label {{
     font-size: 0.8rem !important;
     font-weight: 600 !important;
     letter-spacing: 0.02em;
-}
+}}
 
-.stMetric [data-testid="stMetricValue"] {
+.stMetric [data-testid="stMetricValue"] {{
     font-size: 1.15rem !important;
     font-weight: 700 !important;
-    color: #1A237E !important;
-}
+    color: {T['metric_value_color']} !important;
+}}
 
-/* Tabs — pill-style with gradient active */
-.stTabs [data-baseweb="tab-list"] {
+.stTabs [data-baseweb="tab-list"] {{
     gap: 6px;
     padding: 4px;
-    background: rgba(232, 234, 246, 0.4);
+    background: {T['tab_list_bg']};
     border-radius: 12px;
-}
+}}
 
-.stTabs [data-baseweb="tab"] {
+.stTabs [data-baseweb="tab"] {{
     border-radius: 10px;
     padding: 8px 18px;
     font-weight: 500;
     transition: all 0.2s ease;
-}
+}}
 
-.stTabs [aria-selected="true"] {
-    background: linear-gradient(135deg, #7B1FA2 0%, #039BE5 100%);
+.stTabs [aria-selected="true"] {{
+    background: {T['tab_active_bg']};
     color: white !important;
-    box-shadow: 0 2px 8px rgba(123, 31, 162, 0.25);
-}
+    box-shadow: 0 2px 8px {T['tab_active_shadow']};
+}}
 
-div[data-testid="stDataFrame"] {
+div[data-testid="stDataFrame"] {{
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-}
+}}
 
-/* Plotly chart containers */
-.stPlotlyChart {
+.stPlotlyChart {{
     border-radius: 12px;
     background: white;
     padding: 4px;
     box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
-}
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -472,6 +569,26 @@ df = load_data()
 st.sidebar.title("📊 Sales Dashboard")
 st.sidebar.markdown("---")
 
+# Theme selector
+t_theme = st.sidebar.selectbox("🎨 Theme", list(THEMES.keys()), key="theme_sel")
+T = THEMES[t_theme]
+
+# Dynamic product colors
+PRODUCT_COLORS = T["product_colors"]
+PAID_COLOR = T["paid_color"]
+OUTSTANDING_COLOR = T["outstanding_color"]
+TARGET_COLOR = T["target_color"]
+PRODUCT_DEFAULT_COLOR = T["product_default"]
+BG_COLOR = T["chart_bg"]
+GRID_COLOR = T["chart_grid"]
+
+# Clean theme: country-specific product color lookup
+def get_product_country_color(product, country):
+    cpc = T.get("country_product_colors", {})
+    if (product, country) in cpc:
+        return cpc[(product, country)]
+    return PRODUCT_COLORS.get(product, PRODUCT_DEFAULT_COLOR)
+
 cur = currency_selector("Display Currency", "app_currency")
 
 # Date range filter
@@ -595,26 +712,12 @@ PALETTE = [
 ]
 PALETTE_BARS = ["#4FC3F7", "#80DEEA", "#B39DDB", "#F48FB1", "#FFD54F", "#A5D6A7"]
 
-ACCENT_BLUE = "#039BE5"
-
-# Product colours — consistent across all charts
-PRODUCT_COLORS = {
-    "Income Protection Insurance": "#2E7D32",   # forest green
-    "Electric Vehicles / Auto": "#7B1FA2",      # deep violet
-    "Care - Aqua Warranty": "#039BE5",          # bright blue
-}
-PRODUCT_DEFAULT_COLOR = "#7B1FA2"
-PAID_COLOR = "#26A69A"          # teal green — "paid" feels positive
-OUTSTANDING_COLOR = "#FF8A65"   # warm coral — draws attention
-TARGET_COLOR = "#66BB6A"        # green for target line
-BG_COLOR = "rgba(123, 31, 162, 0.015)"
-GRID_COLOR = "rgba(123, 31, 162, 0.06)"
 
 def _base_layout(fig, height=420):
     fig.update_layout(
         height=height,
         title_font_size=16,
-        title_font_color="#1A237E",
+        title_font_color=T.get("chart_title_color", "#1A237E"),
         xaxis_title="",
         yaxis_title="",
         legend_title="",
@@ -1012,10 +1115,10 @@ elif page == "🏳️ Country Drill Down":
     fig_cp = go.Figure()
     for prod_name in cp["Product"].unique():
         pdata = cp[cp["Product"] == prod_name]
-        prod_color = PRODUCT_COLORS.get(prod_name, PRODUCT_DEFAULT_COLOR)
+        bar_colors = [get_product_country_color(prod_name, c) for c in pdata["Country"]]
         fig_cp.add_trace(go.Bar(
             x=pdata["Country"], y=pdata["Contracts"], name=prod_name,
-            marker_color=prod_color,
+            marker_color=bar_colors,
             text=[f"{int(c):,}" for c in pdata["Contracts"]],
             textposition="outside", textfont=dict(size=10),
             customdata=[[fmt(v, cur)] for v in pdata["Revenue"]],
@@ -1109,9 +1212,10 @@ elif page == "📦 Product Drill Down":
         ).reset_index()
         cp["Revenue"] = cp["Revenue"].apply(lambda v: convert(v, cur))
         fig_cp = go.Figure()
+        bar_colors = [get_product_country_color(prod_sel, c) for c in cp["Country"]]
         fig_cp.add_trace(go.Bar(
             y=cp["Country"], x=cp["Revenue"], name=f"Revenue ({cur})",
-            orientation="h", marker_color=PALETTE[0],
+            orientation="h", marker_color=bar_colors,
             text=[fmt(v, cur) for v in cp["Revenue"]],
             textposition="outside", textfont=dict(size=11),
             customdata=cp[["Contracts"]].values,
