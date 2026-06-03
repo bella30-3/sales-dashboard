@@ -77,10 +77,21 @@ section[data-testid="stSidebar"] small {
 section[data-testid="stSidebar"] input,
 section[data-testid="stSidebar"] textarea {
     color: #E8ECF1 !important;
+    background-color: #1A253F !important;
 }
 section[data-testid="stSidebar"] .stDateInput label {
     color: #D0D8E0 !important;
     font-weight: 500 !important;
+}
+section[data-testid="stSidebar"] div[data-baseweb="input"] > div {
+    background-color: #1A253F !important;
+    border-color: #2A3555 !important;
+}
+section[data-testid="stSidebar"] div[data-baseweb="popover"] {
+    background-color: #1A253F !important;
+}
+section[data-testid="stSidebar"] div[data-baseweb="calendar"] {
+    background-color: #1A253F !important;
 }
 
 /* Headings */
@@ -169,6 +180,23 @@ hr {
 /* Caption / small text */
 .stMarkdown small, .stCaption, figcaption {
     color: #6B7B8D !important;
+}
+
+/* Force all Plotly chart titles to be light */
+g.g-gtitle .gtitle-text,
+.g-gtitle text,
+g.infolayer .g-gtitle text {
+    fill: #E8ECF1 !important;
+}
+
+/* Date picker calendar popup */
+div[data-baseweb="datepicker"] {
+    background: #1A253F !important;
+    color: #E8ECF1 !important;
+}
+div[data-baseweb="datepicker"] td,
+div[data-baseweb="datepicker"] th {
+    color: #E8ECF1 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -1009,14 +1037,9 @@ if page == "🌍 Executive Summary":
         fig_m.add_trace(go.Bar(
             x=ma["Month"], y=ma["Premium"], name="Revenue",
             marker_color=PAID_COLOR,
-            hovertemplate="%{x}<br>Revenue: %{y:,.2f}<extra></extra>",
+            customdata=ma[["Contracts"]].values,
+            hovertemplate="%{x}<br>Revenue: %{y:,.2f}<br>Policies: %{customdata[0]:,}<extra></extra>",
         ))
-        for xm, ym, cm in zip(ma["Month"], ma["Premium"], ma["Contracts"]):
-            fig_m.add_annotation(
-                x=xm, y=ym, text=f"<b>{_fmt_val(ym)}</b><br>{cm:,} policies",
-                showarrow=False, yshift=15,
-                font=dict(size=9, color="#8899AA"), align="center",
-            )
         _base_layout(fig_m, 420)
         fig_m.update_layout(title=f"Monthly Revenue ({cur})", xaxis=dict(tickangle=-45, gridcolor=GRID_COLOR),
                             margin=dict(t=50, b=70))
@@ -1050,7 +1073,7 @@ if page == "🌍 Executive Summary":
         fig_mp.update_layout(
             title=f"Monthly Revenue by Product ({cur})",
             xaxis=dict(tickangle=-45, gridcolor=GRID_COLOR),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+            legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5),
         )
         st.plotly_chart(fig_mp, use_container_width=True)
 
@@ -1093,9 +1116,9 @@ elif page == "🗺️ Region Drill Down":
 
     with c1:
         rp = rdf.groupby("Product Label").agg(
-            Contracts=("Contract ID", "count"), Revenue=("Annual Premium", "sum"),
+            Contracts=("Contract ID", "count"),
         ).reset_index()
-        rp.columns = ["Product", "Policies Sold"]
+        rp.rename(columns={"Product Label": "Product", "Contracts": "Policies Sold"}, inplace=True)
         fig_rc = bar_chart(rp, "Product", "Policies Sold", f"Policies Sold — {region_sel}", color_map=PRODUCT_COLORS)
         st.plotly_chart(fig_rc, use_container_width=True)
 
