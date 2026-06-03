@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import random
 from datetime import datetime, timedelta
 import numpy as np
+import streamlit.components.v1 as components
 from currency import convert, fmt, currency_selector, SYMBOLS
 
 # ─────────────────────────────────────────────
@@ -510,40 +511,6 @@ else:
 df_filtered = df[(pd.to_datetime(df["Start Date"]).dt.date >= d_start) &
                  (pd.to_datetime(df["Start Date"]).dt.date <= d_end)]
 
-# ─────────────────────────────────────────────
-# MONTHLY BUDGET & PROJECTION INPUTS
-# ─────────────────────────────────────────────
-MONTHS_LIST = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-# Default budget & projection values (in thousands USD) for each month
-if "budget_data" not in st.session_state:
-    st.session_state.budget_data = [
-        180, 165, 195, 210, 225, 240, 255, 260, 270, 290, 310, 330
-    ]
-if "projection_data" not in st.session_state:
-    st.session_state.projection_data = [
-        190, 175, 210, 230, 250, 265, 280, 290, 300, 320, 345, 370
-    ]
-
-with st.sidebar.expander("📊 Budget & Projection (Monthly, $k USD)", expanded=False):
-    st.caption("Edit monthly targets. These appear on the Actuals vs Budget vs Projection gauge.")
-    cols_input = st.columns(2)
-    with cols_input[0]:
-        st.markdown("**Budget**")
-        for i, m in enumerate(MONTHS_LIST):
-            st.session_state.budget_data[i] = st.number_input(
-                f"{m}", value=float(st.session_state.budget_data[i]),
-                step=10.0, key=f"budget_{i}", label_visibility="visible",
-            )
-    with cols_input[1]:
-        st.markdown("**Projection**")
-        for i, m in enumerate(MONTHS_LIST):
-            st.session_state.projection_data[i] = st.number_input(
-                f"{m}", value=float(st.session_state.projection_data[i]),
-                step=10.0, key=f"projection_{i}", label_visibility="visible",
-            )
-
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Period: **{d_start}** → **{d_end}**")
 
@@ -737,71 +704,111 @@ def make_gauge(value, title, max_val=100, suffix="%"):
     )
     return fig
 
-def make_concentric_actuals_budget_projection(actual_val, budget_val, projection_val, currency):
-    """Concentric semicircle arcs: Actuals (inner), Budget (middle), Projection (outer)."""
-    max_val = max(actual_val, budget_val, projection_val, 1) * 1.15
+def make_concentric_gauge_html(actual_val, budget_val, projection_val, currency):
+    """Concentric semicircle gauge using HTML Canvas — fits in 3-column layout."""
+    sym = SYMBOLS.get(currency, "$")
+    max_ref = max(actual_val, budget_val, projection_val, 1)
 
-    # Build filled wedge for each arc
-    def _wedge(val, r_inner, r_outer, n=80):
-        frac = min(val / max_val, 1.0)
-        theta_end = frac * 180
-        thetas = [i * theta_end / n for i in range(n + 1)]
-        r_out = [r_outer] * len(thetas)
-        r_in = [r_inner] * len(thetas)
-        # Close the wedge: go out along end angle at r_inner, then back at r_outer
-        return thetas + [theta_end, 0], r_out + [r_inner, r_inner]
+    # Percentages relative to the largest value
+    pct_actual = actual_val / max_ref
+    pct_budget = budget_val / max_ref
+    pct_proj = projection_val / max_ref
 
-    fig = go.Figure()
+    # Format values
+    def _fmt(v):
+        if v >= 1_000_000:
+            return f"{sym}{v / 1_000_000:.1f}M"
+        elif v >= 1_000:
+            return f"{sym}{v / 1_000:.1f}k"
+        else:
+            return f"{sym}{v:,.0f}"
 
-    # Outer ring — Projection (amber)
-    t_proj, r_proj = _wedge(projection_val, 68, 100)
-    fig.add_trace(go.Scatterpolar(
-        r=r_proj, theta=t_proj, fill="toself",
-        fillcolor="rgba(255,176,32,0.35)",
-        line=dict(color="#FFB020", width=2),
-        name=f"Projection: {fmt(projection_val, currency)}",
-        hoverinfo="name",
-    ))
-    # Middle ring — Budget (blue)
-    t_bud, r_bud = _wedge(budget_val, 38, 64)
-    fig.add_trace(go.Scatterpolar(
-        r=r_bud, theta=t_bud, fill="toself",
-        fillcolor="rgba(51,96,240,0.35)",
-        line=dict(color="#3360F0", width=2),
-        name=f"Budget: {fmt(budget_val, currency)}",
-        hoverinfo="name",
-    ))
-    # Inner ring — Actuals (green)
-    t_act, r_act = _wedge(actual_val, 8, 34)
-    fig.add_trace(go.Scatterpolar(
-        r=r_act, theta=t_act, fill="toself",
-        fillcolor="rgba(0,214,143,0.5)",
-        line=dict(color="#00D68F", width=2),
-        name=f"Actuals: {fmt(actual_val, currency)}",
-        hoverinfo="name",
-    ))
+    actual_str = _fmt(actual_val)
+    budget_str = _fmt(budget_val)
+    proj_str = _fmt(projection_val)
+    actual_pct_str = f"{pct_actual * 100:.0f}%"
+    budget_pct_str = f"{pct_budget * 100:.0f}%"
+    proj_pct_str = f"{pct_proj * 100:.0f}%"
 
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(visible=False, range=[0, 105]),
-            angularaxis=dict(visible=False),
-        ),
-        showlegend=True,
-        legend=dict(
-            orientation="h", yanchor="bottom", y=-0.05,
-            xanchor="center", x=0.5,
-            font=dict(size=12, color=TEXT_PRIMARY),
-        ),
-        title=dict(
-            text="Actuals vs Budget vs Projection",
-            font=dict(size=14, color="#8899AA", family="Inter"),
-        ),
-        height=320,
-        margin=dict(t=60, b=40, l=40, r=40),
-        paper_bgcolor=CHART_BG,
-        font=dict(family="Inter, sans-serif", color="#8899AA"),
-    )
-    return fig
+    html = f"""
+    <div style="background:#1A253F;border-radius:12px;padding:16px 12px 12px;text-align:center;border:1px solid #2A3555;box-shadow:0 4px 16px rgba(0,0,0,0.35)">
+      <p style="font-size:13px;color:#8899AA;margin:0 0 8px;font-family:Inter,sans-serif">Performance vs. Budget &amp; Projection</p>
+      <canvas id="gaugeCanvas" width="420" height="240"></canvas>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:10px;font-size:11px;color:#8899AA;font-family:Inter,sans-serif;flex-wrap:wrap">
+        <span style="color:#00D68F">⬤ Actuals — {actual_str}</span>
+        <span style="color:#3360F0">⬤ Budget — {budget_str}</span>
+        <span style="color:#FFB020">⬤ Projection — {proj_str}</span>
+      </div>
+    </div>
+    <script>
+    (function() {{
+      const canvas = document.getElementById('gaugeCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const W = 420, H = 240;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.scale(dpr, dpr);
+      const cx = W / 2, cy = H - 20;
+
+      const rings = [
+        {{ pct: {pct_proj:.4f}, color: '#FFB020', track: 'rgba(255,176,32,0.15)', r: 170, lw: 18, label: '{proj_pct_str}' }},
+        {{ pct: {pct_budget:.4f}, color: '#3360F0', track: 'rgba(51,96,240,0.15)', r: 138, lw: 18, label: '{budget_pct_str}' }},
+        {{ pct: {pct_actual:.4f}, color: '#00D68F', track: 'rgba(0,214,143,0.12)', r: 106, lw: 18, label: '{actual_pct_str}' }},
+      ];
+
+      let t = 0;
+      function draw() {{
+        ctx.clearRect(0, 0, W, H);
+        rings.forEach(function(ring) {{
+          // Track
+          ctx.beginPath();
+          ctx.arc(cx, cy, ring.r, Math.PI, 0);
+          ctx.strokeStyle = ring.track;
+          ctx.lineWidth = ring.lw;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+          // Filled arc
+          ctx.beginPath();
+          ctx.arc(cx, cy, ring.r, Math.PI, Math.PI + Math.PI * Math.min(ring.pct * t, 1));
+          ctx.strokeStyle = ring.color;
+          ctx.lineWidth = ring.lw;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+          // Labels at end of arc
+          if (t >= 1) {{
+            const angle = Math.PI + Math.PI * ring.pct;
+            const lx = cx + (ring.r + 22) * Math.cos(angle);
+            const ly = cy + (ring.r + 22) * Math.sin(angle);
+            ctx.font = '600 11px Inter, system-ui, sans-serif';
+            ctx.fillStyle = ring.color;
+            ctx.textAlign = 'center';
+            ctx.fillText(ring.label, lx, ly);
+          }}
+        }});
+        // Center value
+        if (t >= 1) {{
+          ctx.font = '700 22px Inter, system-ui, sans-serif';
+          ctx.fillStyle = '#E8ECF1';
+          ctx.textAlign = 'center';
+          ctx.fillText('{actual_str}', cx, cy - 12);
+          ctx.font = '400 11px Inter, system-ui, sans-serif';
+          ctx.fillStyle = '#8899AA';
+          ctx.fillText('Actuals YTD', cx, cy + 8);
+        }}
+        if (t < 1) {{
+          t += 0.03;
+          requestAnimationFrame(draw);
+        }}
+      }}
+      draw();
+    }})();
+    </script>
+    """
+    return html
 
 
 # ─────────────────────────────────────────────
@@ -906,24 +913,38 @@ def render_metrics(currency):
     c8.metric("⚠️ Lapse Rate", f"{kpis['lapse_pct']:.1f}%")
 
 
+def _generate_budget_projection(actual_ytd):
+    """Generate budget (~10% above) and projection (~20% above) with some close months."""
+    # Month-level actuals from filtered data
+    monthly = df_filtered.groupby("Month")["Annual Premium"].sum().to_dict()
+    current_month = datetime.now().month
+
+    budget_total = 0
+    projection_total = 0
+    for m in range(1, current_month + 1):
+        actual_m = monthly.get(m, 0)
+        # 3 months where everything is close (simulates underperformance / tight tracking)
+        if m in (3, 7, 11):
+            budget_m = actual_m * random.uniform(0.98, 1.05)
+            proj_m = actual_m * random.uniform(1.00, 1.08)
+        else:
+            budget_m = actual_m * random.uniform(1.06, 1.14)
+            proj_m = actual_m * random.uniform(1.15, 1.25)
+        budget_total += budget_m
+        projection_total += proj_m
+    return budget_total, projection_total
+
 def render_gauge_row(currency):
     """Render concentric gauge (Actuals vs Budget vs Projection) + Renewal & Lapse meters."""
     kpis = compute_kpis(df_filtered, currency)
+    actual_ytd = convert(kpis["total_premium"], currency)
 
-    # Compute YTD actuals in thousands
-    actual_ytd = convert(kpis["total_premium"], currency) / 1000
-
-    # Sum budget & projection for months within the selected date range
-    current_month = datetime.now().month  # 1-indexed
-    budget_ytd = sum(st.session_state.budget_data[:current_month])
-    projection_ytd = sum(st.session_state.projection_data[:current_month])
+    budget_ytd, projection_ytd = _generate_budget_projection(actual_ytd)
 
     g1, g2, g3 = st.columns(3)
     with g1:
-        fig_concentric = make_concentric_actuals_budget_projection(
-            actual_ytd, budget_ytd, projection_ytd, currency
-        )
-        st.plotly_chart(fig_concentric, use_container_width=True)
+        gauge_html = make_concentric_gauge_html(actual_ytd, budget_ytd, projection_ytd, currency)
+        components.html(gauge_html, height=320, scrolling=False)
     with g2:
         fig_renewal = make_gauge(kpis["renewal_pct"], "Renewal %")
         st.plotly_chart(fig_renewal, use_container_width=True)
