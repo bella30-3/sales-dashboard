@@ -13,191 +13,240 @@ from currency import convert, fmt, currency_selector, SYMBOLS
 st.set_page_config(page_title="Sales Dashboard", layout="wide", initial_sidebar_state="expanded", page_icon="🌊")
 
 # ─────────────────────────────────────────────
-# DARK THEME
+# THEMES
 # ─────────────────────────────────────────────
-ACCENT = "#3360F0"
-PAID_COLOR = "#3360F0"
-OUTSTANDING_COLOR = "#E04050"
-TARGET_COLOR = "#60B0A0"
-BG_COLOR = "#0E1117"
-CARD_BG = "#1A1F2E"
-CARD_BORDER = "#2A3040"
-SIDEBAR_BG = "#0E1117"
-TEXT_PRIMARY = "#E8ECF1"
-TEXT_SECONDARY = "#8899AA"
-GRID_COLOR = "rgba(255,255,255,0.06)"
-HEADING_COLOR = "#E8ECF1"
-
-PRODUCT_COLORS = {
-    "Income Protection": "#3360F0",
-    "Automotive": "#60B0A0",
-    "Care - Aqua": "#F0B020",
+THEMES = {
+    "Dark Blue": {
+        "accent": "#3360F0",
+        "paid": "#3360F0",
+        "outstanding": "#E04050",
+        "target": "#60B0A0",
+        "bg": "#0E1117",
+        "card_bg": "#1A1F2E",
+        "card_border": "#2A3040",
+        "grid": "rgba(255,255,255,0.06)",
+        "text_primary": "#E8ECF1",
+        "text_secondary": "#8899AA",
+        "gauge_green": "#00D68F",
+        "gauge_amber": "#FFB020",
+        "gauge_red": "#FF4D4F",
+        "product_colors": {
+            "Income Protection": "#3360F0",
+            "Automotive": "#60B0A0",
+            "Care - Aqua": "#F0B020",
+        },
+        "country_colors": {
+            "Singapore": "#E04050",
+            "Thailand": "#3050F0",
+            "India": "#F0B020",
+            "Europe": "#60B0A0",
+        },
+    },
+    "Sea Green": {
+        "accent": "#20B2AA",
+        "paid": "#20B2AA",
+        "outstanding": "#F06050",
+        "target": "#70C0B0",
+        "bg": "#0B1929",
+        "card_bg": "#122A3E",
+        "card_border": "#1C3A52",
+        "grid": "rgba(32,178,170,0.08)",
+        "text_primary": "#E8F0F2",
+        "text_secondary": "#7AABB8",
+        "gauge_green": "#20B2AA",
+        "gauge_amber": "#F0B040",
+        "gauge_red": "#F06050",
+        "product_colors": {
+            "Income Protection": "#20B2AA",
+            "Automotive": "#3A8FBF",
+            "Care - Aqua": "#F0B040",
+        },
+        "country_colors": {
+            "Singapore": "#F06050",
+            "Thailand": "#3A8FBF",
+            "India": "#F0B040",
+            "Europe": "#20B2AA",
+        },
+    },
 }
-PRODUCT_DEFAULT_COLOR = ACCENT
-
-COUNTRY_COLORS = {
-    "Singapore": "#E04050",
-    "Thailand": "#3050F0",
-    "India": "#F0B020",
-    "Europe": "#60B0A0",
-}
-COUNTRY_DEFAULT_COLOR = "#3360F0"
-
-# Gauge colours for semicircle meters
-GAUGE_GREEN = "#00D68F"
-GAUGE_AMBER = "#FFB020"
-GAUGE_RED = "#FF4D4F"
 
 # Commission rate (15% of annual premium)
 COMMISSION_RATE = 0.15
 
-st.markdown("""
+# ─────────────────────────────────────────────
+# THEME SELECTION (before CSS)
+# ─────────────────────────────────────────────
+_theme_sel = st.sidebar.selectbox("🎨 Theme", list(THEMES.keys()), key="theme_sel")
+T = THEMES[_theme_sel]
+ACCENT = T["accent"]
+PAID_COLOR = T["paid"]
+OUTSTANDING_COLOR = T["outstanding"]
+TARGET_COLOR = T["target"]
+BG_COLOR = T["bg"]
+CARD_BG = T["card_bg"]
+CARD_BORDER = T["card_border"]
+SIDEBAR_BG = T["bg"]
+TEXT_PRIMARY = T["text_primary"]
+TEXT_SECONDARY = T["text_secondary"]
+GRID_COLOR = T["grid"]
+HEADING_COLOR = T["text_primary"]
+CHART_BG = T["card_bg"]
+PRODUCT_COLORS = T["product_colors"]
+PRODUCT_DEFAULT_COLOR = ACCENT
+COUNTRY_COLORS = T["country_colors"]
+COUNTRY_DEFAULT_COLOR = ACCENT
+GAUGE_GREEN = T["gauge_green"]
+GAUGE_AMBER = T["gauge_amber"]
+GAUGE_RED = T["gauge_red"]
+
+# Build CSS with theme colors
+st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 /* Dark app background */
-.stApp {
+.stApp {{
     font-family: 'Inter', sans-serif;
-    background: #0E1117;
-    color: #E8ECF1;
-}
+    background: {BG_COLOR};
+    color: {TEXT_PRIMARY};
+}}
 
 /* Sidebar */
-section[data-testid="stSidebar"] {
-    background: #0E1117;
-    border-right: 1px solid #2A3040;
-}
+section[data-testid="stSidebar"] {{
+    background: {BG_COLOR};
+    border-right: 1px solid {CARD_BORDER};
+}}
 section[data-testid="stSidebar"] .stMarkdown p,
 section[data-testid="stSidebar"] .stMarkdown li,
 section[data-testid="stSidebar"] label,
 section[data-testid="stSidebar"] .stCaption,
-section[data-testid="stSidebar"] small {
-    color: #C8D0D8 !important;
-}
+section[data-testid="stSidebar"] small {{
+    color: {TEXT_SECONDARY} !important;
+}}
 section[data-testid="stSidebar"] input,
-section[data-testid="stSidebar"] textarea {
-    color: #E8ECF1 !important;
-    background-color: #1A253F !important;
-}
-section[data-testid="stSidebar"] .stDateInput label {
-    color: #D0D8E0 !important;
+section[data-testid="stSidebar"] textarea {{
+    color: {TEXT_PRIMARY} !important;
+    background-color: {CARD_BG} !important;
+}}
+section[data-testid="stSidebar"] .stDateInput label {{
+    color: {TEXT_PRIMARY} !important;
     font-weight: 500 !important;
-}
-section[data-testid="stSidebar"] div[data-baseweb="input"] > div {
-    background-color: #1A253F !important;
-    border-color: #2A3555 !important;
-}
-section[data-testid="stSidebar"] div[data-baseweb="popover"] {
-    background-color: #1A253F !important;
-}
-section[data-testid="stSidebar"] div[data-baseweb="calendar"] {
-    background-color: #1A253F !important;
-}
+}}
+section[data-testid="stSidebar"] div[data-baseweb="input"] > div {{
+    background-color: {CARD_BG} !important;
+    border-color: {CARD_BORDER} !important;
+}}
+section[data-testid="stSidebar"] div[data-baseweb="popover"] {{
+    background-color: {CARD_BG} !important;
+}}
+section[data-testid="stSidebar"] div[data-baseweb="calendar"] {{
+    background-color: {CARD_BG} !important;
+}}
 
 /* Headings */
-h1, h2, h3, h4 {
-    color: #E8ECF1 !important;
+h1, h2, h3, h4 {{
+    color: {TEXT_PRIMARY} !important;
     font-weight: 700 !important;
-}
-h1 { font-size: 1.5rem !important; }
-h2 { font-size: 1.25rem !important; }
-h3 { font-size: 1.1rem !important; }
+}}
+h1 {{ font-size: 1.5rem !important; }}
+h2 {{ font-size: 1.25rem !important; }}
+h3 {{ font-size: 1.1rem !important; }}
 
 /* General text */
-p, li, span, label, .stMarkdown {
-    color: #C8D0D8;
-}
+p, li, span, label, .stMarkdown {{
+    color: {TEXT_SECONDARY};
+}}
 
 /* Metric cards — dark glass look */
-.stMetric > div {
-    background: #1A1F2E;
+.stMetric > div {{
+    background: {CARD_BG};
     border-radius: 10px;
     padding: 14px 18px;
-    border: 1px solid #2A3040;
-}
-.stMetric label {
+    border: 1px solid {CARD_BORDER};
+}}
+.stMetric label {{
     font-size: 0.78rem !important;
     font-weight: 500 !important;
-    color: #8899AA !important;
-}
-.stMetric [data-testid="stMetricValue"] {
+    color: {TEXT_SECONDARY} !important;
+}}
+.stMetric [data-testid="stMetricValue"] {{
     font-size: 1.2rem !important;
     font-weight: 700 !important;
-    color: #E8ECF1 !important;
-}
+    color: {TEXT_PRIMARY} !important;
+}}
 
 /* Tabs */
-.stTabs [data-baseweb="tab-list"] {
+.stTabs [data-baseweb="tab-list"] {{
     gap: 6px;
     padding: 4px;
-    background: #1A1F2E;
+    background: {CARD_BG};
     border-radius: 10px;
-}
-.stTabs [data-baseweb="tab"] {
+}}
+.stTabs [data-baseweb="tab"] {{
     border-radius: 8px;
     padding: 8px 18px;
     font-weight: 500;
-    color: #8899AA;
-}
-.stTabs [aria-selected="true"] {
-    background: #3360F0;
+    color: {TEXT_SECONDARY};
+}}
+.stTabs [aria-selected="true"] {{
+    background: {ACCENT};
     color: #FFFFFF !important;
     font-weight: 700;
-}
+}}
 
 /* Plotly charts — dark card with border & shadow */
-.stPlotlyChart {
+.stPlotlyChart {{
     border-radius: 12px;
-    background: #1A253F;
+    background: {CHART_BG};
     padding: 6px;
-    border: 1px solid #2A3555;
+    border: 1px solid {CARD_BORDER};
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 1px 4px rgba(0, 0, 0, 0.2);
-}
+}}
 
 /* Dataframes */
-div[data-testid="stDataFrame"] {
+div[data-testid="stDataFrame"] {{
     border-radius: 10px;
     overflow: hidden;
-}
+}}
 
 /* Selectbox / multiselect dropdowns */
-div[data-baseweb="select"] > div {
-    background: #1A253F;
-    border-color: #2A3555;
-    color: #E8ECF1;
-}
+div[data-baseweb="select"] > div {{
+    background: {CHART_BG};
+    border-color: {CARD_BORDER};
+    color: {TEXT_PRIMARY};
+}}
 
 /* Date input */
-div[data-testid="stDateInput"] input {
-    color: #E8ECF1;
-}
+div[data-testid="stDateInput"] input {{
+    color: {TEXT_PRIMARY};
+}}
 
 /* Horizontal rule */
-hr {
-    border-color: #2A3040 !important;
-}
+hr {{
+    border-color: {CARD_BORDER} !important;
+}}
 
 /* Caption / small text */
-.stMarkdown small, .stCaption, figcaption {
-    color: #6B7B8D !important;
-}
+.stMarkdown small, .stCaption, figcaption {{
+    color: {TEXT_SECONDARY} !important;
+}}
 
 /* Force all Plotly chart titles to be light */
 g.g-gtitle .gtitle-text,
 .g-gtitle text,
-g.infolayer .g-gtitle text {
-    fill: #E8ECF1 !important;
-}
+g.infolayer .g-gtitle text {{
+    fill: {TEXT_PRIMARY} !important;
+}}
 
 /* Date picker calendar popup */
-div[data-baseweb="datepicker"] {
-    background: #1A253F !important;
-    color: #E8ECF1 !important;
-}
+div[data-baseweb="datepicker"] {{
+    background: {CHART_BG} !important;
+    color: {TEXT_PRIMARY} !important;
+}}
 div[data-baseweb="datepicker"] td,
-div[data-baseweb="datepicker"] th {
-    color: #E8ECF1 !important;
-}
+div[data-baseweb="datepicker"] th {{
+    color: {TEXT_PRIMARY} !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -561,26 +610,23 @@ st.sidebar.caption(f"Premium: **{fmt(convert(df_filtered['Annual Premium'].sum()
 # ─────────────────────────────────────────────
 # CHART HELPERS
 # ─────────────────────────────────────────────
-PALETTE = ["#3360F0"]
-
-
-CHART_BG = "#1A253F"
+PALETTE = [ACCENT]
 
 
 def _base_layout(fig, height=420):
     fig.update_layout(
         height=height,
         title_font_size=16,
-        title_font_color="#E8ECF1",
+        title_font_color=TEXT_PRIMARY,
         xaxis_title="",
         yaxis_title="",
         legend_title="",
         plot_bgcolor=CHART_BG,
         paper_bgcolor=CHART_BG,
-        font=dict(family="Inter, sans-serif", color="#8899AA", size=13),
-        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color="#8899AA"),
-        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color="#8899AA"),
-        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5, font=dict(color="#8899AA")),
+        font=dict(family="Inter, sans-serif", color=TEXT_SECONDARY, size=13),
+        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color=TEXT_SECONDARY),
+        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color=TEXT_SECONDARY),
+        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5, font=dict(color=TEXT_SECONDARY)),
         margin=dict(t=60, b=50, l=60, r=30),
     )
     return fig
@@ -595,7 +641,7 @@ def empty_state(title="No data available"):
         annotations=[dict(
             text="No data for selected filters",
             xref="paper", yref="paper", x=0.5, y=0.5,
-            showarrow=False, font=dict(size=16, color="#8899AA"),
+            showarrow=False, font=dict(size=16, color=TEXT_SECONDARY),
         )],
     )
     return fig
@@ -684,7 +730,7 @@ def premium_chart(agg, group_col, title, currency, height=420):
             x=x_val, y=total,
             text=f"<b>{fmt(total, currency)}</b>",
             showarrow=False, yshift=20,
-            font=dict(size=12, color="#8899AA"), align="center",
+            font=dict(size=12, color=TEXT_SECONDARY), align="center",
         )
     _base_layout(fig, height)
     fig.update_layout(title=title, barmode="stack", margin=dict(t=65))
@@ -709,10 +755,10 @@ def make_gauge(value, title, max_val=100, suffix="%"):
         value=v,
         number={"suffix": suffix, "font": {"size": 28, "color": TEXT_PRIMARY, "family": "Inter"}},
         gauge={
-            "axis": {"range": [0, max_val], "tickcolor": "#8899AA",
-                     "tickfont": {"size": 11, "color": "#8899AA"}},
+            "axis": {"range": [0, max_val], "tickcolor": TEXT_SECONDARY,
+                     "tickfont": {"size": 11, "color": TEXT_SECONDARY}},
             "bar": {"color": bar_color, "thickness": 0.3},
-            "bgcolor": "#2A3040",
+            "bgcolor": CARD_BG,
             "borderwidth": 0,
             "steps": [
                 {"range": [0, max_val * 0.4], "color": "rgba(255,77,79,0.15)"},
@@ -799,7 +845,7 @@ def make_nested_donut(actuals_by_month, budget_by_month, proj_by_month, currency
     # Center label
     total_actuals = sum(act_vals)
     fig.add_annotation(
-        text=f"<b>{fmt(convert(total_actuals, currency), currency)}</b><br><span style='font-size:10px;color:#8899AA'>Actuals YTD</span>",
+        text=f"<b>{fmt(convert(total_actuals, currency), currency)}</b><br><span style='font-size:10px;color:{TEXT_SECONDARY}'>Actuals YTD</span>",
         x=0.5, y=0.5, xref="paper", yref="paper",
         showarrow=False, font=dict(size=16, color=TEXT_PRIMARY, family="Inter"),
     )
@@ -809,12 +855,12 @@ def make_nested_donut(actuals_by_month, budget_by_month, proj_by_month, currency
         margin=dict(t=30, b=10, l=10, r=10),
         paper_bgcolor=CHART_BG,
         plot_bgcolor=CHART_BG,
-        font=dict(family="Inter, sans-serif", color="#8899AA"),
+        font=dict(family="Inter, sans-serif", color=TEXT_SECONDARY),
         showlegend=True,
         legend=dict(
             orientation="h", yanchor="top", y=-0.02,
             xanchor="center", x=0.5,
-            font=dict(size=11, color="#8899AA"),
+            font=dict(size=11, color=TEXT_SECONDARY),
             itemsizing="constant",
         ),
 
@@ -883,8 +929,8 @@ def _kpi_card(label, value, delta=None, positive=True):
     if delta is not None:
         delta_html = f'<div style="font-size:0.78rem;color:{color};margin-top:4px">{arrow} {delta}</div>'
     return f"""
-    <div style="background:#1A1F2E;border:1px solid #2A3040;border-radius:10px;padding:16px 20px;text-align:center">
-      <div style="font-size:0.85rem;color:#8899AA;font-weight:600">{label}</div>
+    <div style="background:{CARD_BG};border:1px solid {CARD_BORDER};border-radius:10px;padding:16px 20px;text-align:center">
+      <div style="font-size:0.85rem;color:{TEXT_SECONDARY};font-weight:600">{label}</div>
       <div style="font-size:1.35rem;font-weight:700;color:{color};margin-top:6px">{value}</div>
       {delta_html}
     </div>
@@ -893,9 +939,9 @@ def _kpi_card(label, value, delta=None, positive=True):
 def _kpi_card_neutral(label, value):
     """HTML metric card with neutral color (no delta)."""
     return f"""
-    <div style="background:#1A1F2E;border:1px solid #2A3040;border-radius:10px;padding:16px 20px;text-align:center">
-      <div style="font-size:0.85rem;color:#8899AA;font-weight:600">{label}</div>
-      <div style="font-size:1.35rem;font-weight:700;color:#E8ECF1;margin-top:6px">{value}</div>
+    <div style="background:{CARD_BG};border:1px solid {CARD_BORDER};border-radius:10px;padding:16px 20px;text-align:center">
+      <div style="font-size:0.85rem;color:{TEXT_SECONDARY};font-weight:600">{label}</div>
+      <div style="font-size:1.35rem;font-weight:700;color:{TEXT_PRIMARY};margin-top:6px">{value}</div>
     </div>
     """
 
@@ -1019,9 +1065,9 @@ if page == "🌍 Executive Summary":
                 height=420,
                 paper_bgcolor=CHART_BG,
                 plot_bgcolor=CHART_BG,
-                font=dict(family="Inter, sans-serif", color="#8899AA"),
+                font=dict(family="Inter, sans-serif", color=TEXT_SECONDARY),
                 legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5,
-                            font=dict(color="#8899AA")),
+                            font=dict(color=TEXT_SECONDARY)),
                 margin=dict(t=60, b=60, l=30, r=30),
             )
             st.plotly_chart(fig_pie, use_container_width=True)
@@ -1112,7 +1158,7 @@ if page == "🌍 Executive Summary":
             y=cc["Country"], x=cc["Policies Sold"], orientation="h",
             marker_color=[COUNTRY_COLORS.get(c, COUNTRY_DEFAULT_COLOR) for c in cc["Country"]],
             text=[f"{int(v):,}" for v in cc["Policies Sold"]],
-            textposition="outside", textfont=dict(size=11, color="#8899AA"),
+            textposition="outside", textfont=dict(size=11, color=TEXT_SECONDARY),
             hovertemplate="<b>%{y}</b><br>Policies Sold: %{x:,}<extra></extra>",
         ))
         _base_layout(fig_cc, 420)
@@ -1189,7 +1235,7 @@ elif page == "🗺️ Region Drill Down":
                 y=cdata["Client"], x=cdata["Revenue"], name=country, orientation="h",
                 marker_color=COUNTRY_COLORS.get(country, COUNTRY_DEFAULT_COLOR),
                 text=[fmt(v, cur) for v in cdata["Revenue"]],
-                textposition="outside", textfont=dict(size=10, color="#8899AA"),
+                textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
             ))
         _base_layout(fig_tc, max(350, len(cl) * 30))
         fig_tc.update_layout(title=f"Top Clients — {region_sel} ({cur})", barmode="group",
@@ -1246,7 +1292,7 @@ elif page == "🏳️ Country Drill Down":
                 x=pdata["Country"], y=pdata["Policies Sold"], name=prod_name,
                 marker_color=PRODUCT_COLORS.get(prod_name, PRODUCT_DEFAULT_COLOR),
                 text=[f"{int(c):,}" for c in pdata["Policies Sold"]],
-                textposition="outside", textfont=dict(size=10, color="#8899AA"),
+                textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
             ))
         _base_layout(fig_cc, 420)
         fig_cc.update_layout(title=f"Policies Sold — {sel_label}", barmode="group",
@@ -1264,11 +1310,11 @@ elif page == "🏳️ Country Drill Down":
             pdata = rev[rev["Product"] == prod_name]
             fig_cr.add_trace(go.Bar(x=pdata["Country"], y=pdata["Paid"], name=f"Paid — {prod_name}",
                                     marker_color=PAID_COLOR, text=[fmt(v, cur) for v in pdata["Paid"]],
-                                    textposition="outside", textfont=dict(size=10, color="#8899AA")))
+                                    textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY)))
             fig_cr.add_trace(go.Bar(x=pdata["Country"], y=pdata["Outstanding"], name=f"Pending — {prod_name}",
                                     marker_color=OUTSTANDING_COLOR,
                                     text=[fmt(v, cur) for v in pdata["Outstanding"]],
-                                    textposition="outside", textfont=dict(size=10, color="#8899AA")))
+                                    textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY)))
         _base_layout(fig_cr, 420)
         fig_cr.update_layout(title=f"Revenue — {sel_label} ({cur})", barmode="group",
                              xaxis=dict(gridcolor=GRID_COLOR))
@@ -1287,7 +1333,7 @@ elif page == "🏳️ Country Drill Down":
                 y=cdata["Client"], x=cdata["Revenue"], name=country, orientation="h",
                 marker_color=COUNTRY_COLORS.get(country, COUNTRY_DEFAULT_COLOR),
                 text=[fmt(v, cur) for v in cdata["Revenue"]],
-                textposition="outside", textfont=dict(size=10, color="#8899AA"),
+                textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
             ))
         _base_layout(fig_tc, max(400, len(cl) * 30))
         fig_tc.update_layout(title=f"Top Clients — {sel_label} ({cur})", barmode="group",
@@ -1325,7 +1371,7 @@ elif page == "📦 Product Drill Down":
                 y=cp["Country"], x=cp["Revenue"], orientation="h",
                 marker_color=bar_colors,
                 text=[fmt(v, cur) for v in cp["Revenue"]],
-                textposition="outside", textfont=dict(size=11, color="#8899AA"),
+                textposition="outside", textfont=dict(size=11, color=TEXT_SECONDARY),
                 customdata=cp[["Contracts"]].values,
                 hovertemplate="<b>%{y}</b><br>Revenue: %{x}<br>Policies: %{customdata[0]:,}<extra></extra>",
             ))
@@ -1347,13 +1393,13 @@ elif page == "📦 Product Drill Down":
                             y=cdata["Plan"], x=cdata["Paid"], name=f"Paid — {country}",
                             orientation="h", marker_color=PAID_COLOR,
                             text=[fmt(v, cur) for v in cdata["Paid"]],
-                            textposition="outside", textfont=dict(size=10, color="#8899AA"),
+                            textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
                         ))
                         fig_plan.add_trace(go.Bar(
                             y=cdata["Plan"], x=cdata["Outstanding"], name=f"Pending — {country}",
                             orientation="h", marker_color=OUTSTANDING_COLOR,
                             text=[fmt(v, cur) for v in cdata["Outstanding"]],
-                            textposition="outside", textfont=dict(size=10, color="#8899AA"),
+                            textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
                         ))
                     _base_layout(fig_plan, max(300, len(plan_data["Plan"].unique()) * 100))
                     fig_plan.update_layout(
@@ -1378,7 +1424,7 @@ elif page == "📦 Product Drill Down":
                     y=cdata["Client"], x=cdata["Revenue"], name=country, orientation="h",
                     marker_color=COUNTRY_COLORS.get(country, COUNTRY_DEFAULT_COLOR),
                     text=[fmt(v, cur) for v in cdata["Revenue"]],
-                    textposition="outside", textfont=dict(size=10, color="#8899AA"),
+                    textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
                     customdata=cdata[["Contracts"]].values,
                     hovertemplate=f"<b>%{{y}}</b><br>Revenue: %{{x}}<br>Policies: %{{customdata[0]:,}}<extra></extra>",
                 ))
