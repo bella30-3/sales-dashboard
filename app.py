@@ -789,8 +789,7 @@ def make_nested_donut(actuals_by_month, budget_by_month, proj_by_month, currency
             font=dict(size=11, color="#8899AA"),
             itemsizing="constant",
         ),
-        # Disable default click behavior
-        clickevent=False,
+
     )
     return fig
 
