@@ -881,11 +881,11 @@ def _kpi_card(label, value, delta=None, positive=True):
     arrow = "▲" if positive else "▼"
     delta_html = ""
     if delta is not None:
-        delta_html = f'<div style="font-size:0.72rem;color:{color};margin-top:2px">{arrow} {delta}</div>'
+        delta_html = f'<div style="font-size:0.78rem;color:{color};margin-top:4px">{arrow} {delta}</div>'
     return f"""
-    <div style="background:#1A1F2E;border:1px solid #2A3040;border-radius:10px;padding:14px 18px;text-align:center">
-      <div style="font-size:0.78rem;color:#8899AA;font-weight:500">{label}</div>
-      <div style="font-size:1.2rem;font-weight:700;color:{color};margin-top:4px">{value}</div>
+    <div style="background:#1A1F2E;border:1px solid #2A3040;border-radius:10px;padding:16px 20px;text-align:center">
+      <div style="font-size:0.85rem;color:#8899AA;font-weight:600">{label}</div>
+      <div style="font-size:1.35rem;font-weight:700;color:{color};margin-top:6px">{value}</div>
       {delta_html}
     </div>
     """
@@ -893,14 +893,14 @@ def _kpi_card(label, value, delta=None, positive=True):
 def _kpi_card_neutral(label, value):
     """HTML metric card with neutral color (no delta)."""
     return f"""
-    <div style="background:#1A1F2E;border:1px solid #2A3040;border-radius:10px;padding:14px 18px;text-align:center">
-      <div style="font-size:0.78rem;color:#8899AA;font-weight:500">{label}</div>
-      <div style="font-size:1.2rem;font-weight:700;color:#E8ECF1;margin-top:4px">{value}</div>
+    <div style="background:#1A1F2E;border:1px solid #2A3040;border-radius:10px;padding:16px 20px;text-align:center">
+      <div style="font-size:0.85rem;color:#8899AA;font-weight:600">{label}</div>
+      <div style="font-size:1.35rem;font-weight:700;color:#E8ECF1;margin-top:6px">{value}</div>
     </div>
     """
 
 def render_metrics(currency):
-    """Render the top-row KPI metrics for executive summary with YoY deltas."""
+    """Render KPI metrics: delta cards in first 2 cols, neutral in remaining."""
     kpis = compute_kpis(df_filtered, currency)
 
     # Last year comparison — same date range shifted back 1 year
@@ -926,8 +926,8 @@ def render_metrics(currency):
     d_commission, pos_commission = _pct_delta(kpis["total_commission"], kpis_ly["total_commission"])
     d_renewal, pos_renewal = _pp_delta(kpis["renewal_pct"], kpis_ly["renewal_pct"])
 
-    # Top row: Policies, Premium, Avg Premium, Total Commission
-    c1, c2, c3, c4 = st.columns(4)
+    # Row 1: Delta metrics in first 2 columns (wider cards)
+    c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
     with c1:
         st.markdown(_kpi_card("📋 Policies Sold (YTD)", f"{kpis['n_policies']:,}", d_policies, pos_policies), unsafe_allow_html=True)
     with c2:
@@ -935,18 +935,17 @@ def render_metrics(currency):
     with c3:
         st.markdown(_kpi_card_neutral("📊 Avg Premium", fmt2(convert(kpis["avg_premium"], currency), currency)), unsafe_allow_html=True)
     with c4:
-        st.markdown(_kpi_card("💵 Total Commission", fmt(convert(kpis["total_commission"], currency), currency), d_commission, pos_commission), unsafe_allow_html=True)
-
-    # Bottom row: Avg Commission, Active %, Renewal %, Lapse Rate
-    c5, c6, c7, c8 = st.columns(4)
-    with c5:
         st.markdown(_kpi_card_neutral("📈 Avg Commission", fmt2(convert(kpis["avg_commission"], currency), currency)), unsafe_allow_html=True)
+
+    # Row 2: Delta metrics in first 2 columns
+    c5, c6, c7, c8 = st.columns([2, 2, 1, 1])
+    with c5:
+        st.markdown(_kpi_card("💵 Total Commission", fmt(convert(kpis["total_commission"], currency), currency), d_commission, pos_commission), unsafe_allow_html=True)
     with c6:
-        st.markdown(_kpi_card_neutral("✅ Active %", f"{kpis['active_pct']:.1f}%"), unsafe_allow_html=True)
-    with c7:
         st.markdown(_kpi_card("🔄 Renewal %", f"{kpis['renewal_pct']:.1f}%", d_renewal, pos_renewal), unsafe_allow_html=True)
+    with c7:
+        st.markdown(_kpi_card_neutral("✅ Active %", f"{kpis['active_pct']:.1f}%"), unsafe_allow_html=True)
     with c8:
-        lapse_pos = kpis["lapse_pct"] <= kpis_ly["lapse_pct"]  # lower lapse is good
         st.markdown(_kpi_card_neutral("⚠️ Lapse Rate", f"{kpis['lapse_pct']:.1f}%"), unsafe_allow_html=True)
 
 
