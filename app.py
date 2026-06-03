@@ -27,6 +27,7 @@ THEMES = {
         "grid": "rgba(255,255,255,0.06)",
         "text_primary": "#E8ECF1",
         "text_secondary": "#8899AA",
+        "chart_text": "#8899AA",
         "gauge_green": "#00D68F",
         "gauge_amber": "#FFB020",
         "gauge_red": "#FF4D4F",
@@ -43,29 +44,30 @@ THEMES = {
         },
     },
     "Sea Green": {
-        "accent": "#20B2AA",
-        "paid": "#20B2AA",
-        "outstanding": "#F06050",
-        "target": "#70C0B0",
-        "bg": "#0B1929",
-        "card_bg": "#122A3E",
-        "card_border": "#1C3A52",
-        "grid": "rgba(32,178,170,0.08)",
-        "text_primary": "#E8F0F2",
-        "text_secondary": "#7AABB8",
-        "gauge_green": "#20B2AA",
-        "gauge_amber": "#F0B040",
-        "gauge_red": "#F06050",
+        "accent": "#006D6D",
+        "paid": "#006D6D",
+        "outstanding": "#D94F4F",
+        "target": "#4CAF80",
+        "bg": "#006D6D",
+        "card_bg": "#FFFFFF",
+        "card_border": "#006D6D",
+        "grid": "rgba(0,109,109,0.10)",
+        "text_primary": "#FFFFFF",
+        "text_secondary": "#C0E0E0",
+        "chart_text": "#333333",
+        "gauge_green": "#006D6D",
+        "gauge_amber": "#E6A800",
+        "gauge_red": "#D94F4F",
         "product_colors": {
-            "Income Protection": "#20B2AA",
-            "Automotive": "#3A8FBF",
-            "Care - Aqua": "#F0B040",
+            "Income Protection": "#006D6D",
+            "Automotive": "#4CAF80",
+            "Care - Aqua": "#E6A800",
         },
         "country_colors": {
-            "Singapore": "#F06050",
-            "Thailand": "#3A8FBF",
-            "India": "#F0B040",
-            "Europe": "#20B2AA",
+            "Singapore": "#D94F4F",
+            "Thailand": "#009999",
+            "India": "#E6A800",
+            "Europe": "#4CAF80",
         },
     },
 }
@@ -98,6 +100,7 @@ COUNTRY_DEFAULT_COLOR = ACCENT
 GAUGE_GREEN = T["gauge_green"]
 GAUGE_AMBER = T["gauge_amber"]
 GAUGE_RED = T["gauge_red"]
+CHART_TEXT = T.get("chart_text", TEXT_SECONDARY)
 
 # Build CSS with theme colors
 st.markdown(f"""
@@ -235,7 +238,7 @@ hr {{
 g.g-gtitle .gtitle-text,
 .g-gtitle text,
 g.infolayer .g-gtitle text {{
-    fill: {TEXT_PRIMARY} !important;
+    fill: {CHART_TEXT} !important;
 }}
 
 /* Date picker calendar popup */
@@ -626,16 +629,16 @@ def _base_layout(fig, height=420):
     fig.update_layout(
         height=height,
         title_font_size=16,
-        title_font_color=TEXT_PRIMARY,
+        title_font_color=CHART_TEXT,
         xaxis_title="",
         yaxis_title="",
         legend_title="",
         plot_bgcolor=CHART_BG,
         paper_bgcolor=CHART_BG,
-        font=dict(family="Inter, sans-serif", color=TEXT_SECONDARY, size=13),
-        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color=TEXT_SECONDARY),
-        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color=TEXT_SECONDARY),
-        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5, font=dict(color=TEXT_SECONDARY)),
+        font=dict(family="Inter, sans-serif", color=CHART_TEXT, size=13),
+        xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color=CHART_TEXT),
+        yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color=CHART_TEXT),
+        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5, font=dict(color=CHART_TEXT)),
         margin=dict(t=60, b=50, l=60, r=30),
     )
     return fig
@@ -650,7 +653,7 @@ def empty_state(title="No data available"):
         annotations=[dict(
             text="No data for selected filters",
             xref="paper", yref="paper", x=0.5, y=0.5,
-            showarrow=False, font=dict(size=16, color=TEXT_SECONDARY),
+            showarrow=False, font=dict(size=16, color=CHART_TEXT),
         )],
     )
     return fig
@@ -739,7 +742,7 @@ def premium_chart(agg, group_col, title, currency, height=420):
             x=x_val, y=total,
             text=f"<b>{fmt(total, currency)}</b>",
             showarrow=False, yshift=20,
-            font=dict(size=12, color=TEXT_SECONDARY), align="center",
+            font=dict(size=12, color=CHART_TEXT), align="center",
         )
     _base_layout(fig, height)
     fig.update_layout(title=title, barmode="stack", margin=dict(t=65))
@@ -762,7 +765,7 @@ def make_gauge(value, title, max_val=100, suffix="%"):
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=v,
-        number={"suffix": suffix, "font": {"size": 28, "color": TEXT_PRIMARY, "family": "Inter"}},
+        number={"suffix": suffix, "font": {"size": 28, "color": CHART_TEXT, "family": "Inter"}},
         gauge={
             "axis": {"range": [0, max_val], "tickcolor": TEXT_SECONDARY,
                      "tickfont": {"size": 11, "color": TEXT_SECONDARY}},
@@ -869,7 +872,7 @@ def make_nested_donut(actuals_by_month, budget_by_month, proj_by_month, currency
         legend=dict(
             orientation="h", yanchor="top", y=-0.02,
             xanchor="center", x=0.5,
-            font=dict(size=11, color=TEXT_SECONDARY),
+            font=dict(size=11, color=CHART_TEXT),
             itemsizing="constant",
         ),
 
@@ -939,7 +942,7 @@ def _kpi_card(label, value, delta=None, positive=True):
         delta_html = f'<div style="font-size:0.78rem;color:{color};margin-top:4px">{arrow} {delta}</div>'
     return f"""
     <div style="background:{CARD_BG};border:1px solid {CARD_BORDER};border-radius:10px;padding:16px 20px;text-align:center">
-      <div style="font-size:0.85rem;color:{TEXT_SECONDARY};font-weight:600">{label}</div>
+      <div style="font-size:0.85rem;color:{CHART_TEXT};font-weight:600">{label}</div>
       <div style="font-size:1.35rem;font-weight:700;color:{color};margin-top:6px">{value}</div>
       {delta_html}
     </div>
@@ -949,8 +952,8 @@ def _kpi_card_neutral(label, value):
     """HTML metric card with neutral color (no delta)."""
     return f"""
     <div style="background:{CARD_BG};border:1px solid {CARD_BORDER};border-radius:10px;padding:16px 20px;text-align:center">
-      <div style="font-size:0.85rem;color:{TEXT_SECONDARY};font-weight:600">{label}</div>
-      <div style="font-size:1.35rem;font-weight:700;color:{TEXT_PRIMARY};margin-top:6px">{value}</div>
+      <div style="font-size:0.85rem;color:{CHART_TEXT};font-weight:600">{label}</div>
+      <div style="font-size:1.35rem;font-weight:700;color:{CHART_TEXT};margin-top:6px">{value}</div>
     </div>
     """
 
@@ -1167,7 +1170,7 @@ if page == "🌍 Executive Summary":
             y=cc["Country"], x=cc["Policies Sold"], orientation="h",
             marker_color=[COUNTRY_COLORS.get(c, COUNTRY_DEFAULT_COLOR) for c in cc["Country"]],
             text=[f"{int(v):,}" for v in cc["Policies Sold"]],
-            textposition="outside", textfont=dict(size=11, color=TEXT_SECONDARY),
+            textposition="outside", textfont=dict(size=11, color=CHART_TEXT),
             hovertemplate="<b>%{y}</b><br>Policies Sold: %{x:,}<extra></extra>",
         ))
         _base_layout(fig_cc, 420)
@@ -1244,7 +1247,7 @@ elif page == "🗺️ Region Drill Down":
                 y=cdata["Client"], x=cdata["Revenue"], name=country, orientation="h",
                 marker_color=COUNTRY_COLORS.get(country, COUNTRY_DEFAULT_COLOR),
                 text=[fmt(v, cur) for v in cdata["Revenue"]],
-                textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
+                textposition="outside", textfont=dict(size=10, color=CHART_TEXT),
             ))
         _base_layout(fig_tc, max(350, len(cl) * 30))
         fig_tc.update_layout(title=f"Top Clients — {region_sel} ({cur})", barmode="group",
@@ -1301,7 +1304,7 @@ elif page == "🏳️ Country Drill Down":
                 x=pdata["Country"], y=pdata["Policies Sold"], name=prod_name,
                 marker_color=PRODUCT_COLORS.get(prod_name, PRODUCT_DEFAULT_COLOR),
                 text=[f"{int(c):,}" for c in pdata["Policies Sold"]],
-                textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
+                textposition="outside", textfont=dict(size=10, color=CHART_TEXT),
             ))
         _base_layout(fig_cc, 420)
         fig_cc.update_layout(title=f"Policies Sold — {sel_label}", barmode="group",
@@ -1319,11 +1322,11 @@ elif page == "🏳️ Country Drill Down":
             pdata = rev[rev["Product"] == prod_name]
             fig_cr.add_trace(go.Bar(x=pdata["Country"], y=pdata["Paid"], name=f"Paid — {prod_name}",
                                     marker_color=PAID_COLOR, text=[fmt(v, cur) for v in pdata["Paid"]],
-                                    textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY)))
+                                    textposition="outside", textfont=dict(size=10, color=CHART_TEXT)))
             fig_cr.add_trace(go.Bar(x=pdata["Country"], y=pdata["Outstanding"], name=f"Pending — {prod_name}",
                                     marker_color=OUTSTANDING_COLOR,
                                     text=[fmt(v, cur) for v in pdata["Outstanding"]],
-                                    textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY)))
+                                    textposition="outside", textfont=dict(size=10, color=CHART_TEXT)))
         _base_layout(fig_cr, 420)
         fig_cr.update_layout(title=f"Revenue — {sel_label} ({cur})", barmode="group",
                              xaxis=dict(gridcolor=GRID_COLOR))
@@ -1342,7 +1345,7 @@ elif page == "🏳️ Country Drill Down":
                 y=cdata["Client"], x=cdata["Revenue"], name=country, orientation="h",
                 marker_color=COUNTRY_COLORS.get(country, COUNTRY_DEFAULT_COLOR),
                 text=[fmt(v, cur) for v in cdata["Revenue"]],
-                textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
+                textposition="outside", textfont=dict(size=10, color=CHART_TEXT),
             ))
         _base_layout(fig_tc, max(400, len(cl) * 30))
         fig_tc.update_layout(title=f"Top Clients — {sel_label} ({cur})", barmode="group",
@@ -1380,7 +1383,7 @@ elif page == "📦 Product Drill Down":
                 y=cp["Country"], x=cp["Revenue"], orientation="h",
                 marker_color=bar_colors,
                 text=[fmt(v, cur) for v in cp["Revenue"]],
-                textposition="outside", textfont=dict(size=11, color=TEXT_SECONDARY),
+                textposition="outside", textfont=dict(size=11, color=CHART_TEXT),
                 customdata=cp[["Contracts"]].values,
                 hovertemplate="<b>%{y}</b><br>Revenue: %{x}<br>Policies: %{customdata[0]:,}<extra></extra>",
             ))
@@ -1402,13 +1405,13 @@ elif page == "📦 Product Drill Down":
                             y=cdata["Plan"], x=cdata["Paid"], name=f"Paid — {country}",
                             orientation="h", marker_color=PAID_COLOR,
                             text=[fmt(v, cur) for v in cdata["Paid"]],
-                            textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
+                            textposition="outside", textfont=dict(size=10, color=CHART_TEXT),
                         ))
                         fig_plan.add_trace(go.Bar(
                             y=cdata["Plan"], x=cdata["Outstanding"], name=f"Pending — {country}",
                             orientation="h", marker_color=OUTSTANDING_COLOR,
                             text=[fmt(v, cur) for v in cdata["Outstanding"]],
-                            textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
+                            textposition="outside", textfont=dict(size=10, color=CHART_TEXT),
                         ))
                     _base_layout(fig_plan, max(300, len(plan_data["Plan"].unique()) * 100))
                     fig_plan.update_layout(
@@ -1433,7 +1436,7 @@ elif page == "📦 Product Drill Down":
                     y=cdata["Client"], x=cdata["Revenue"], name=country, orientation="h",
                     marker_color=COUNTRY_COLORS.get(country, COUNTRY_DEFAULT_COLOR),
                     text=[fmt(v, cur) for v in cdata["Revenue"]],
-                    textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
+                    textposition="outside", textfont=dict(size=10, color=CHART_TEXT),
                     customdata=cdata[["Contracts"]].values,
                     hovertemplate=f"<b>%{{y}}</b><br>Revenue: %{{x}}<br>Policies: %{{customdata[0]:,}}<extra></extra>",
                 ))
@@ -1630,7 +1633,7 @@ elif page == "🚗 EV Warranty Analysis":
                     fig_bm.add_trace(go.Bar(
                         x=bdata["Model"], y=bdata["Warranties"], name=brand,
                         text=[f"{int(v):,}" for v in bdata["Warranties"]],
-                        textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
+                        textposition="outside", textfont=dict(size=10, color=CHART_TEXT),
                     ))
                 _base_layout(fig_bm, 420)
                 fig_bm.update_layout(title="Warranties by Brand & Model", barmode="group",
