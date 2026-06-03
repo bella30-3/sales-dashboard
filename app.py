@@ -875,6 +875,30 @@ def compute_kpis(df_curr, currency):
     }
 
 
+def _kpi_card(label, value, delta=None, positive=True):
+    """HTML metric card with value colored green/red based on delta direction."""
+    color = GAUGE_GREEN if positive else GAUGE_RED
+    arrow = "▲" if positive else "▼"
+    delta_html = ""
+    if delta is not None:
+        delta_html = f'<div style="font-size:0.72rem;color:{color};margin-top:2px">{arrow} {delta}</div>'
+    return f"""
+    <div style="background:#1A1F2E;border:1px solid #2A3040;border-radius:10px;padding:14px 18px;text-align:center">
+      <div style="font-size:0.78rem;color:#8899AA;font-weight:500">{label}</div>
+      <div style="font-size:1.2rem;font-weight:700;color:{color};margin-top:4px">{value}</div>
+      {delta_html}
+    </div>
+    """
+
+def _kpi_card_neutral(label, value):
+    """HTML metric card with neutral color (no delta)."""
+    return f"""
+    <div style="background:#1A1F2E;border:1px solid #2A3040;border-radius:10px;padding:14px 18px;text-align:center">
+      <div style="font-size:0.78rem;color:#8899AA;font-weight:500">{label}</div>
+      <div style="font-size:1.2rem;font-weight:700;color:#E8ECF1;margin-top:4px">{value}</div>
+    </div>
+    """
+
 def render_metrics(currency):
     """Render the top-row KPI metrics for executive summary with YoY deltas."""
     kpis = compute_kpis(df_filtered, currency)
@@ -886,42 +910,44 @@ def render_metrics(currency):
                (pd.to_datetime(df["Start Date"]).dt.date <= ly_end)]
     kpis_ly = compute_kpis(df_ly, currency)
 
-    # Delta helpers
-    def _delta(curr, prev, as_pct=False):
+    def _pct_delta(curr, prev):
         if prev == 0:
-            return None
-        diff = curr - prev
-        if as_pct:
-            return f"{diff:+.1f}pp"
-        pct = (diff / prev) * 100
-        return f"{pct:+.1f}%"
+            return None, True
+        pct = ((curr - prev) / prev) * 100
+        return f"{pct:+.1f}%", pct >= 0
 
-    def _delta_color(curr, prev):
-        if curr >= prev:
-            return "normal"  # green for positive
-        return "inverse"    # red for negative
+    def _pp_delta(curr, prev):
+        diff = curr - prev
+        return f"{diff:+.1f}pp", diff >= 0
+
+    # Deltas
+    d_policies, pos_policies = _pct_delta(kpis["n_policies"], kpis_ly["n_policies"])
+    d_premium, pos_premium = _pct_delta(kpis["total_premium"], kpis_ly["total_premium"])
+    d_commission, pos_commission = _pct_delta(kpis["total_commission"], kpis_ly["total_commission"])
+    d_renewal, pos_renewal = _pp_delta(kpis["renewal_pct"], kpis_ly["renewal_pct"])
 
     # Top row: Policies, Premium, Avg Premium, Total Commission
     c1, c2, c3, c4 = st.columns(4)
-    d1 = _delta(kpis["n_policies"], kpis_ly["n_policies"])
-    c1.metric("📋 Policies Sold (YTD)", f"{kpis['n_policies']:,}",
-              delta=d1, delta_color=_delta_color(kpis["n_policies"], kpis_ly["n_policies"]))
-    d2 = _delta(kpis["total_premium"], kpis_ly["total_premium"])
-    c2.metric("💰 Total Premium", fmt(convert(kpis["total_premium"], currency), currency),
-              delta=d2, delta_color=_delta_color(kpis["total_premium"], kpis_ly["total_premium"]))
-    c3.metric("📊 Avg Premium", fmt2(convert(kpis["avg_premium"], currency), currency))
-    d4 = _delta(kpis["total_commission"], kpis_ly["total_commission"])
-    c4.metric("💵 Total Commission", fmt(convert(kpis["total_commission"], currency), currency),
-              delta=d4, delta_color=_delta_color(kpis["total_commission"], kpis_ly["total_commission"]))
+    with c1:
+        st.markdown(_kpi_card("📋 Policies Sold (YTD)", f"{kpis['n_policies']:,}", d_policies, pos_policies), unsafe_allow_html=True)
+    with c2:
+        st.markdown(_kpi_card("💰 Total Premium", fmt(convert(kpis["total_premium"], currency), currency), d_premium, pos_premium), unsafe_allow_html=True)
+    with c3:
+        st.markdown(_kpi_card_neutral("📊 Avg Premium", fmt2(convert(kpis["avg_premium"], currency), currency)), unsafe_allow_html=True)
+    with c4:
+        st.markdown(_kpi_card("💵 Total Commission", fmt(convert(kpis["total_commission"], currency), currency), d_commission, pos_commission), unsafe_allow_html=True)
 
     # Bottom row: Avg Commission, Active %, Renewal %, Lapse Rate
     c5, c6, c7, c8 = st.columns(4)
-    c5.metric("📈 Avg Commission", fmt2(convert(kpis["avg_commission"], currency), currency))
-    c6.metric("✅ Active %", f"{kpis['active_pct']:.1f}%")
-    d7 = _delta(kpis["renewal_pct"], kpis_ly["renewal_pct"], as_pct=True)
-    c7.metric("🔄 Renewal %", f"{kpis['renewal_pct']:.1f}%",
-              delta=d7, delta_color=_delta_color(kpis["renewal_pct"], kpis_ly["renewal_pct"]))
-    c8.metric("⚠️ Lapse Rate", f"{kpis['lapse_pct']:.1f}%")
+    with c5:
+        st.markdown(_kpi_card_neutral("📈 Avg Commission", fmt2(convert(kpis["avg_commission"], currency), currency)), unsafe_allow_html=True)
+    with c6:
+        st.markdown(_kpi_card_neutral("✅ Active %", f"{kpis['active_pct']:.1f}%"), unsafe_allow_html=True)
+    with c7:
+        st.markdown(_kpi_card("🔄 Renewal %", f"{kpis['renewal_pct']:.1f}%", d_renewal, pos_renewal), unsafe_allow_html=True)
+    with c8:
+        lapse_pos = kpis["lapse_pct"] <= kpis_ly["lapse_pct"]  # lower lapse is good
+        st.markdown(_kpi_card_neutral("⚠️ Lapse Rate", f"{kpis['lapse_pct']:.1f}%"), unsafe_allow_html=True)
 
 
 def render_gauge_row(currency):
