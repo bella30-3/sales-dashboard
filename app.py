@@ -541,7 +541,7 @@ with st.sidebar.expander("📊 Budget & Projection (Monthly, $k USD)", expanded=
         for i, m in enumerate(MONTHS_LIST):
             st.session_state.projection_data[i] = st.number_input(
                 f"{m}", value=float(st.session_state.projection_data[i]),
-                step=10.0, key="projection_{i}", label_visibility="visible",
+                step=10.0, key=f"projection_{i}", label_visibility="visible",
             )
 
 st.sidebar.markdown("---")
@@ -891,19 +891,51 @@ def compute_kpis(df_curr, currency):
 
 
 def render_metrics(currency):
-    """Render the top-row KPI metrics for executive summary."""
+    """Render the top-row KPI metrics for executive summary with YoY deltas."""
     kpis = compute_kpis(df_filtered, currency)
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("📋 Policies Sold (YTD)", f"{kpis['n_policies']:,}")
-    c2.metric("💰 Total Premium", fmt(convert(kpis["total_premium"], currency), currency))
-    c3.metric("📊 Avg Premium", fmt(convert(kpis["avg_premium"], currency), currency))
-    c4.metric("💵 Total Commission", fmt(convert(kpis["total_commission"], currency), currency))
+    # Last year comparison — same date range shifted back 1 year
+    ly_start = d_start.replace(year=d_start.year - 1)
+    ly_end = d_end.replace(year=d_end.year - 1)
+    df_ly = df[(pd.to_datetime(df["Start Date"]).dt.date >= ly_start) &
+               (pd.to_datetime(df["Start Date"]).dt.date <= ly_end)]
+    kpis_ly = compute_kpis(df_ly, currency)
 
+    # Delta helpers
+    def _delta(curr, prev, as_pct=False):
+        if prev == 0:
+            return None
+        diff = curr - prev
+        if as_pct:
+            return f"{diff:+.1f}pp"
+        pct = (diff / prev) * 100
+        return f"{pct:+.1f}%"
+
+    def _delta_color(curr, prev):
+        if curr >= prev:
+            return "normal"  # green for positive
+        return "inverse"    # red for negative
+
+    # Top row: Policies, Premium, Avg Premium, Total Commission
+    c1, c2, c3, c4 = st.columns(4)
+    d1 = _delta(kpis["n_policies"], kpis_ly["n_policies"])
+    c1.metric("📋 Policies Sold (YTD)", f"{kpis['n_policies']:,}",
+              delta=d1, delta_color=_delta_color(kpis["n_policies"], kpis_ly["n_policies"]))
+    d2 = _delta(kpis["total_premium"], kpis_ly["total_premium"])
+    c2.metric("💰 Total Premium", fmt(convert(kpis["total_premium"], currency), currency),
+              delta=d2, delta_color=_delta_color(kpis["total_premium"], kpis_ly["total_premium"]))
+    c3.metric("📊 Avg Premium", fmt(convert(kpis["avg_premium"], currency), currency))
+    d4 = _delta(kpis["total_commission"], kpis_ly["total_commission"])
+    c4.metric("💵 Total Commission", fmt(convert(kpis["total_commission"], currency), currency),
+              delta=d4, delta_color=_delta_color(kpis["total_commission"], kpis_ly["total_commission"]))
+
+    # Bottom row: Avg Commission, Active %, Renewal %, Lapse Rate
     c5, c6, c7, c8 = st.columns(4)
     c5.metric("📈 Avg Commission", fmt(convert(kpis["avg_commission"], currency), currency))
     c6.metric("✅ Active %", f"{kpis['active_pct']:.1f}%")
-    c7.metric("🔄 Renewal %", f"{kpis['renewal_pct']:.1f}%")
+    d7 = _delta(kpis["renewal_pct"], kpis_ly["renewal_pct"], as_pct=True)
+    c7.metric("🔄 Renewal %", f"{kpis['renewal_pct']:.1f}%",
+              delta=d7, delta_color=_delta_color(kpis["renewal_pct"], kpis_ly["renewal_pct"]))
     c8.metric("⚠️ Lapse Rate", f"{kpis['lapse_pct']:.1f}%")
 
 
