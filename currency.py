@@ -1,58 +1,55 @@
-"""Shared currency config for dashboards."""
+"""Currency conversion helpers for the Sales Dashboard."""
 
-EXCHANGE_RATES = {
+import streamlit as st
+
+# Exchange rates relative to USD
+RATES = {
     "USD": 1.0,
     "SGD": 1.35,
-    "INR": 85.5,
-    "THB": 35.0,
     "EUR": 0.92,
+    "GBP": 0.79,
+    "INR": 83.5,
+    "THB": 35.0,
+    "JPY": 155.0,
+    "MYR": 4.70,
+    "IDR": 15800.0,
 }
 
-CURRENCY_SYMBOLS = {
+SYMBOLS = {
     "USD": "$",
     "SGD": "S$",
+    "EUR": "€",
+    "GBP": "£",
     "INR": "₹",
     "THB": "฿",
-    "EUR": "€",
-}
-
-# Map countries to their local currency
-LOCAL_CURRENCY = {
-    "India": "INR",
-    "Singapore": "SGD",
-    "Thailand": "THB",
-    "Europe": "EUR",
+    "JPY": "¥",
+    "MYR": "RM",
+    "IDR": "Rp",
 }
 
 
-def convert(amount_usd, target_currency):
+def convert(amount_usd: float, target_currency: str) -> float:
     """Convert from USD to target currency."""
-    return amount_usd * EXCHANGE_RATES.get(target_currency, 1.0)
+    rate = RATES.get(target_currency, 1.0)
+    return amount_usd * rate
 
 
-def fmt(amount, currency):
-    """Format amount with currency symbol in thousands (k). Handles NaN/None safely."""
-    import math
-    if amount is None or (isinstance(amount, float) and (math.isnan(amount) or math.isinf(amount))):
-        return "—"
-    symbol = CURRENCY_SYMBOLS.get(currency, currency)
-    if amount >= 1_000_000:
-        return f"{symbol}{amount/1_000_000:.2f}M"
-    elif amount >= 1_000:
-        return f"{symbol}{amount/1_000:.2f}k"
+def fmt(amount: float, currency: str = "USD") -> str:
+    """Format amount with currency symbol and k/M suffix."""
+    symbol = SYMBOLS.get(currency, currency + " ")
+    if abs(amount) >= 1_000_000:
+        return f"{symbol}{amount / 1_000_000:.2f}M"
+    elif abs(amount) >= 1_000:
+        return f"{symbol}{amount / 1_000:.2f}k"
     else:
         return f"{symbol}{amount:,.0f}"
 
 
-def currency_selector(label="Display Currency", key="currency"):
-    """Streamlit sidebar currency selector. Returns currency code."""
-    import streamlit as st
-    options = list(EXCHANGE_RATES.keys())
-    return st.sidebar.selectbox(label, options, index=1, key=key)  # default SGD
-
-
-def get_currency_for_country(country, selected):
-    """Resolve selected currency — 'Local' maps to country's currency."""
-    if selected == "Local":
-        return LOCAL_CURRENCY.get(country, "USD")
-    return selected
+def currency_selector(label: str = "Currency", key: str = "currency"):
+    """Streamlit selectbox for currency choice."""
+    return st.sidebar.selectbox(
+        label,
+        list(RATES.keys()),
+        index=0,
+        key=key,
+    )
