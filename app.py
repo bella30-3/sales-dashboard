@@ -1603,6 +1603,11 @@ elif page == "🚗 EV Warranty Analysis":
             h_country = st.multiselect("Country", EV_COUNTRIES, default=EV_COUNTRIES, key="ev_model_c")
             mdf = ev[ev["Country"].isin(h_country)]
 
+            if "Model" not in mdf.columns:
+                st.warning("Model data not available. Clear Streamlit cache and reload.")
+                st.cache_data.clear()
+                st.rerun()
+
             c1, c2, c3 = st.columns(3)
             c1.metric("Policies", f"{len(mdf):,}")
             c2.metric("Brands", f"{mdf['Brand'].nunique()}")
