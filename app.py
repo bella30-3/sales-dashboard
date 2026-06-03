@@ -405,6 +405,14 @@ SGD_TO_USD = 1.35
 EV_HEALTH_STATES = ["Healthy", "Fair", "Poor"]
 EV_BRANDS = ["Mahindra", "BYD", "Porsche", "Subaru", "Hyundai", "Cycle & Carriage"]
 EV_COUNTRIES = ["India", "Singapore", "Thailand"]
+EV_MODELS = {
+    "Porsche": ["Taycan", "Macan", "Cayenne"],
+    "BYD": ["Atto 3", "Seal", "Dolphin", "Tang"],
+    "Subaru": ["Solterra", "Evoltis"],
+    "Hyundai": ["Ioniq 5", "Ioniq 6", "Kona Electric"],
+    "Mahindra": ["eVerito", "XEV 9e", "BE 6"],
+    "Cycle & Carriage": ["Multi-Brand"],
+}
 
 IPI_PLANS = {
     "DBS Staff 2000": {"premium": 200, "type": "Individual", "insurer": "DBS", "sum_insured": 2000},
@@ -518,6 +526,7 @@ def generate_data():
 
                 if prod == "EV / Auto":
                     brand = random.choice(EV_BRANDS)
+                    model = random.choice(EV_MODELS.get(brand, ["Unknown"]))
                     health = random.choices(EV_HEALTH_STATES, weights=[60, 30, 10])[0]
                     age = random.randint(1, 15)
                     km = random.randint(5000, 250000)
@@ -528,7 +537,7 @@ def generate_data():
                     claim_count = random.randint(0, 5) if health == "Poor" else random.randint(0, 3)
                     claim_amount = claim_count * random.randint(500, 5000)
                     row.update({
-                        "Health State": health, "Brand": brand,
+                        "Health State": health, "Brand": brand, "Model": model,
                         "Vehicle Age": age, "KM Driven": km,
                         "Claims": claim_count, "Claim Amount": claim_amount,
                     })
@@ -1442,8 +1451,8 @@ elif page == "🚗 EV Warranty Analysis":
     if ev.empty:
         st.warning("No EV data in selected period.")
     else:
-        ev_tab1, ev_tab2, ev_tab3, ev_tab4, ev_tab5 = st.tabs([
-            "🩺 State of Health", "📅 By Age", "🛣️ By KM", "🔄 Health vs KM", "🔄 Health vs Age"])
+        ev_tab1, ev_tab2, ev_tab3, ev_tab4, ev_tab5, ev_tab6 = st.tabs([
+            "🩺 State of Health", "📅 By Age", "🛣️ By KM", "🔄 Health vs KM", "🔄 Health vs Age", "🚗 By Model"])
 
         with ev_tab1:
             st.subheader("EV — State of Health")
@@ -1585,6 +1594,82 @@ elif page == "🚗 EV Warranty Analysis":
                 has_["Claim Amount"] = has_["Claim Amount"].apply(lambda v: convert(v, cur))
                 st.plotly_chart(bar_chart(has_, "Age Bracket", "Claim Amount", f"Claim Amount vs Age ({cur})", color="Health"),
                                 use_container_width=True)
+
+        with ev_tab6:
+            st.subheader("EV — Warranty by Model")
+            h_country = st.multiselect("Country", EV_COUNTRIES, default=EV_COUNTRIES, key="ev_model_c")
+            mdf = ev[ev["Country"].isin(h_country)]
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Policies", f"{len(mdf):,}")
+            c2.metric("Brands", f"{mdf['Brand'].nunique()}")
+            c3.metric("Models", f"{mdf['Model'].nunique()}")
+            st.markdown("---")
+
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                # Warranty count by Model
+                mc = mdf.groupby("Model").agg(
+                    Warranties=("Contract ID", "count"),
+                    Avg_Premium=("Annual Premium", "mean"),
+                ).reset_index().sort_values("Warranties", ascending=False)
+                mc["Avg_Premium"] = mc["Avg_Premium"].apply(lambda v: convert(v, cur))
+                fig_mc = bar_chart(mc.rename(columns={"Warranties": "Count"}), "Model", "Count",
+                                   "Warranty Count by Model")
+                st.plotly_chart(fig_mc, use_container_width=True)
+
+            with col2:
+                # Warranty count by Brand & Model
+                bm = mdf.groupby(["Brand", "Model"]).agg(
+                    Warranties=("Contract ID", "count"),
+                ).reset_index().sort_values("Warranties", ascending=False)
+                fig_bm = go.Figure()
+                for brand in bm["Brand"].unique():
+                    bdata = bm[bm["Brand"] == brand]
+                    fig_bm.add_trace(go.Bar(
+                        x=bdata["Model"], y=bdata["Warranties"], name=brand,
+                        text=[f"{int(v):,}" for v in bdata["Warranties"]],
+                        textposition="outside", textfont=dict(size=10, color=TEXT_SECONDARY),
+                    ))
+                _base_layout(fig_bm, 420)
+                fig_bm.update_layout(title="Warranties by Brand & Model", barmode="group",
+                                     legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5))
+                st.plotly_chart(fig_bm, use_container_width=True)
+
+            with col3:
+                # Avg premium by Model
+                mp = mdf.groupby("Model")["Annual Premium"].mean().reset_index()
+                mp.columns = ["Model", "Avg Premium"]
+                mp["Avg Premium"] = mp["Avg Premium"].apply(lambda v: convert(v, cur))
+                mp = mp.sort_values("Avg Premium", ascending=False)
+                fig_mp = bar_chart(mp, "Model", "Avg Premium", f"Avg Premium by Model ({cur})")
+                st.plotly_chart(fig_mp, use_container_width=True)
+
+            st.markdown("---")
+            col4, col5 = st.columns(2)
+
+            with col4:
+                # Health state by Model
+                hm = mdf.groupby(["Model", "Health State"]).agg(
+                    Policies=("Contract ID", "count"),
+                ).reset_index()
+                hm.columns = ["Model", "Health", "Policies"]
+                fig_hm = bar_chart(hm, "Model", "Policies", "Health State by Model", color="Health")
+                st.plotly_chart(fig_hm, use_container_width=True)
+
+            with col5:
+                # Model table with key stats
+                stats = mdf.groupby("Model").agg(
+                    Policies=("Contract ID", "count"),
+                    Avg_Premium=("Annual Premium", "mean"),
+                    Total_Claims=("Claims", "sum"),
+                    Avg_Age=("Vehicle Age", "mean"),
+                    Avg_KM=("KM Driven", "mean"),
+                ).reset_index()
+                stats["Avg_Premium"] = stats["Avg_Premium"].apply(lambda v: convert(v, cur))
+                stats = stats.sort_values("Policies", ascending=False)
+                st.dataframe(stats, use_container_width=True, height=300)
 
 # ─────────────────────────────────────────────
 # PAGE 6: IPI POLICY ANALYSIS
