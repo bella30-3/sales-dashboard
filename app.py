@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import random
 from datetime import datetime, timedelta
 import numpy as np
-from currency import convert, fmt, currency_selector
+from currency import convert, fmt, currency_selector, SYMBOLS
 
 # ─────────────────────────────────────────────
 # CONFIG
@@ -615,7 +615,17 @@ def _fmt_val(v):
     elif abs(v) >= 1_000:
         return f"{v / 1_000:.2f}k"
     else:
-        return f"{v:,.0f}"
+        return f"{v:,.2f}"
+
+def fmt2(amount: float, currency: str = "USD") -> str:
+    """Format amount with currency symbol, always 2 decimals."""
+    symbol = SYMBOLS.get(currency, currency + " ")
+    if abs(amount) >= 1_000_000:
+        return f"{symbol}{amount / 1_000_000:,.2f}M"
+    elif abs(amount) >= 1_000:
+        return f"{symbol}{amount / 1_000:,.2f}k"
+    else:
+        return f"{symbol}{amount:,.2f}"
 
 
 def bar_chart(data, x, y, title, color=None, barmode="group", height=420, color_map=None):
@@ -779,39 +789,10 @@ def make_concentric_actuals_budget_projection(actual_val, budget_val, projection
         hoverinfo="name",
     ))
 
-    # Value labels at the end of each arc
-    def _label_pos(frac):
-        theta_val = frac * 180
-        rad = theta_val * 3.14159 / 180
-        return rad, frac * 100
-
-    for val, max_v, color, label in [
-        (projection_val, max_val, "#FFB020", "Projection"),
-        (budget_val, max_val, "#3360F0", "Budget"),
-        (actual_val, max_val, "#00D68F", "Actuals"),
-    ]:
-        frac = val / max_v
-        rad = frac * 180 * 3.14159 / 180
-        r_pos = frac * 100
-        # Place text annotation on the polar chart
-        theta_deg = frac * 180
-        fig.add_annotation(
-            x=0.5, y=0.5,
-            xref="paper", yref="paper",
-            text="",
-            showarrow=False,
-        )
-
     fig.update_layout(
         polar=dict(
-            radialaxis=dict(
-                visible=False,
-                range=[0, 100],
-            ),
-            angularaxis=dict(
-                visible=False,
-                range=[0, 180],
-            ),
+            radialaxis=dict(visible=False, range=[0, 105]),
+            angularaxis=dict(visible=False, range=[0, 180]),
             bgcolor=CHART_BG,
         ),
         showlegend=True,
@@ -924,14 +905,14 @@ def render_metrics(currency):
     d2 = _delta(kpis["total_premium"], kpis_ly["total_premium"])
     c2.metric("💰 Total Premium", fmt(convert(kpis["total_premium"], currency), currency),
               delta=d2, delta_color=_delta_color(kpis["total_premium"], kpis_ly["total_premium"]))
-    c3.metric("📊 Avg Premium", fmt(convert(kpis["avg_premium"], currency), currency))
+    c3.metric("📊 Avg Premium", fmt2(convert(kpis["avg_premium"], currency), currency))
     d4 = _delta(kpis["total_commission"], kpis_ly["total_commission"])
     c4.metric("💵 Total Commission", fmt(convert(kpis["total_commission"], currency), currency),
               delta=d4, delta_color=_delta_color(kpis["total_commission"], kpis_ly["total_commission"]))
 
     # Bottom row: Avg Commission, Active %, Renewal %, Lapse Rate
     c5, c6, c7, c8 = st.columns(4)
-    c5.metric("📈 Avg Commission", fmt(convert(kpis["avg_commission"], currency), currency))
+    c5.metric("📈 Avg Commission", fmt2(convert(kpis["avg_commission"], currency), currency))
     c6.metric("✅ Active %", f"{kpis['active_pct']:.1f}%")
     d7 = _delta(kpis["renewal_pct"], kpis_ly["renewal_pct"], as_pct=True)
     c7.metric("🔄 Renewal %", f"{kpis['renewal_pct']:.1f}%",
