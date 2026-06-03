@@ -738,72 +738,59 @@ def make_gauge(value, title, max_val=100, suffix="%"):
     return fig
 
 def make_concentric_actuals_budget_projection(actual_val, budget_val, projection_val, currency):
-    """Concentric semicircle gauge: Actuals (inner), Budget (middle), Projection (outer)."""
-    max_val = max(actual_val, budget_val, projection_val) * 1.2
-    if max_val == 0:
-        max_val = 100
+    """Concentric semicircle arcs: Actuals (inner), Budget (middle), Projection (outer)."""
+    max_val = max(actual_val, budget_val, projection_val, 1) * 1.15
 
-    # Build arcs from 0° (left) to 180° (right) — top semicircle
-    theta_arc = [i * 180 / 100 for i in range(101)]
-
-    # Normalize each value to a fraction of max_val for the radial axis
-    r_actual = actual_val / max_val * 100
-    r_budget = budget_val / max_val * 100
-    r_projection = projection_val / max_val * 100
-
-    # Clamp arcs to actual value
-    theta_actual = [t for t in theta_arc if t <= (actual_val / max_val) * 180]
-    theta_budget = [t for t in theta_arc if t <= (budget_val / max_val) * 180]
-    theta_proj = [t for t in theta_arc if t <= (projection_val / max_val) * 180]
+    # Build filled wedge for each arc
+    def _wedge(val, r_inner, r_outer, n=80):
+        frac = min(val / max_val, 1.0)
+        theta_end = frac * 180
+        thetas = [i * theta_end / n for i in range(n + 1)]
+        r_out = [r_outer] * len(thetas)
+        r_in = [r_inner] * len(thetas)
+        # Close the wedge: go out along end angle at r_inner, then back at r_outer
+        return thetas + [theta_end, 0], r_out + [r_inner, r_inner]
 
     fig = go.Figure()
 
-    # Outer arc — Projection (amber)
+    # Outer ring — Projection (amber)
+    t_proj, r_proj = _wedge(projection_val, 68, 100)
     fig.add_trace(go.Scatterpolar(
-        r=[r_projection] * len(theta_proj),
-        theta=theta_proj,
-        mode="lines",
-        line=dict(color="#FFB020", width=18, shape="spline"),
+        r=r_proj, theta=t_proj, fill="toself",
+        fillcolor="rgba(255,176,32,0.35)",
+        line=dict(color="#FFB020", width=2),
         name=f"Projection: {fmt(projection_val, currency)}",
-        opacity=0.85,
         hoverinfo="name",
     ))
-    # Middle arc — Budget (blue)
+    # Middle ring — Budget (blue)
+    t_bud, r_bud = _wedge(budget_val, 38, 64)
     fig.add_trace(go.Scatterpolar(
-        r=[r_budget] * len(theta_budget),
-        theta=theta_budget,
-        mode="lines",
-        line=dict(color="#3360F0", width=18, shape="spline"),
+        r=r_bud, theta=t_bud, fill="toself",
+        fillcolor="rgba(51,96,240,0.35)",
+        line=dict(color="#3360F0", width=2),
         name=f"Budget: {fmt(budget_val, currency)}",
-        opacity=0.85,
         hoverinfo="name",
     ))
-    # Inner arc — Actuals (green)
+    # Inner ring — Actuals (green)
+    t_act, r_act = _wedge(actual_val, 8, 34)
     fig.add_trace(go.Scatterpolar(
-        r=[r_actual] * len(theta_actual),
-        theta=theta_actual,
-        mode="lines",
-        line=dict(color="#00D68F", width=18, shape="spline"),
+        r=r_act, theta=t_act, fill="toself",
+        fillcolor="rgba(0,214,143,0.5)",
+        line=dict(color="#00D68F", width=2),
         name=f"Actuals: {fmt(actual_val, currency)}",
-        opacity=0.95,
         hoverinfo="name",
     ))
 
     fig.update_layout(
         polar=dict(
             radialaxis=dict(visible=False, range=[0, 105]),
-            angularaxis=dict(visible=False, range=[0, 180]),
-            bgcolor=CHART_BG,
+            angularaxis=dict(visible=False),
         ),
         showlegend=True,
         legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=-0.1,
-            xanchor="center",
-            x=0.5,
+            orientation="h", yanchor="bottom", y=-0.05,
+            xanchor="center", x=0.5,
             font=dict(size=12, color=TEXT_PRIMARY),
-            bgcolor="rgba(0,0,0,0)",
         ),
         title=dict(
             text="Actuals vs Budget vs Projection",
@@ -812,7 +799,6 @@ def make_concentric_actuals_budget_projection(actual_val, budget_val, projection
         height=320,
         margin=dict(t=60, b=40, l=40, r=40),
         paper_bgcolor=CHART_BG,
-        plot_bgcolor=CHART_BG,
         font=dict(family="Inter, sans-serif", color="#8899AA"),
     )
     return fig
