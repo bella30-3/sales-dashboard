@@ -69,8 +69,18 @@ section[data-testid="stSidebar"] {
 }
 section[data-testid="stSidebar"] .stMarkdown p,
 section[data-testid="stSidebar"] .stMarkdown li,
-section[data-testid="stSidebar"] label {
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] .stCaption,
+section[data-testid="stSidebar"] small {
     color: #C8D0D8 !important;
+}
+section[data-testid="stSidebar"] input,
+section[data-testid="stSidebar"] textarea {
+    color: #E8ECF1 !important;
+}
+section[data-testid="stSidebar"] .stDateInput label {
+    color: #D0D8E0 !important;
+    font-weight: 500 !important;
 }
 
 /* Headings */
@@ -124,12 +134,13 @@ p, li, span, label, .stMarkdown {
     font-weight: 700;
 }
 
-/* Plotly charts — dark card */
+/* Plotly charts — dark card with border & shadow */
 .stPlotlyChart {
     border-radius: 12px;
-    background: #1A1F2E;
-    padding: 4px;
-    border: 1px solid #2A3040;
+    background: #1A253F;
+    padding: 6px;
+    border: 1px solid #2A3555;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Dataframes */
@@ -140,8 +151,8 @@ div[data-testid="stDataFrame"] {
 
 /* Selectbox / multiselect dropdowns */
 div[data-baseweb="select"] > div {
-    background: #1A1F2E;
-    border-color: #2A3040;
+    background: #1A253F;
+    border-color: #2A3555;
     color: #E8ECF1;
 }
 
@@ -499,6 +510,40 @@ else:
 df_filtered = df[(pd.to_datetime(df["Start Date"]).dt.date >= d_start) &
                  (pd.to_datetime(df["Start Date"]).dt.date <= d_end)]
 
+# ─────────────────────────────────────────────
+# MONTHLY BUDGET & PROJECTION INPUTS
+# ─────────────────────────────────────────────
+MONTHS_LIST = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+# Default budget & projection values (in thousands USD) for each month
+if "budget_data" not in st.session_state:
+    st.session_state.budget_data = [
+        180, 165, 195, 210, 225, 240, 255, 260, 270, 290, 310, 330
+    ]
+if "projection_data" not in st.session_state:
+    st.session_state.projection_data = [
+        190, 175, 210, 230, 250, 265, 280, 290, 300, 320, 345, 370
+    ]
+
+with st.sidebar.expander("📊 Budget & Projection (Monthly, $k USD)", expanded=False):
+    st.caption("Edit monthly targets. These appear on the Actuals vs Budget vs Projection gauge.")
+    cols_input = st.columns(2)
+    with cols_input[0]:
+        st.markdown("**Budget**")
+        for i, m in enumerate(MONTHS_LIST):
+            st.session_state.budget_data[i] = st.number_input(
+                f"{m}", value=float(st.session_state.budget_data[i]),
+                step=10.0, key=f"budget_{i}", label_visibility="visible",
+            )
+    with cols_input[1]:
+        st.markdown("**Projection**")
+        for i, m in enumerate(MONTHS_LIST):
+            st.session_state.projection_data[i] = st.number_input(
+                f"{m}", value=float(st.session_state.projection_data[i]),
+                step=10.0, key="projection_{i}", label_visibility="visible",
+            )
+
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Period: **{d_start}** → **{d_end}**")
 
@@ -525,6 +570,9 @@ st.sidebar.caption(f"Premium: **{fmt(convert(df_filtered['Annual Premium'].sum()
 PALETTE = ["#3360F0"]
 
 
+CHART_BG = "#1A253F"
+
+
 def _base_layout(fig, height=420):
     fig.update_layout(
         height=height,
@@ -533,8 +581,8 @@ def _base_layout(fig, height=420):
         xaxis_title="",
         yaxis_title="",
         legend_title="",
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor=CHART_BG,
+        paper_bgcolor=CHART_BG,
         font=dict(family="Inter, sans-serif", color="#8899AA", size=13),
         xaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color="#8899AA"),
         yaxis=dict(gridcolor=GRID_COLOR, zerolinecolor=GRID_COLOR, color="#8899AA"),
@@ -549,7 +597,7 @@ def empty_state(title="No data available"):
     fig.update_layout(
         title=title, height=300,
         xaxis=dict(visible=False), yaxis=dict(visible=False),
-        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor=CHART_BG, paper_bgcolor=CHART_BG,
         annotations=[dict(
             text="No data for selected filters",
             xref="paper", yref="paper", x=0.5, y=0.5,
@@ -674,8 +722,117 @@ def make_gauge(value, title, max_val=100, suffix="%"):
     fig.update_layout(
         height=220,
         margin=dict(t=60, b=10, l=30, r=30),
-        paper_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor=CHART_BG,
         font=dict(family="Inter, sans-serif"),
+    )
+    return fig
+
+def make_concentric_actuals_budget_projection(actual_val, budget_val, projection_val, currency):
+    """Concentric semicircle gauge: Actuals (inner), Budget (middle), Projection (outer)."""
+    max_val = max(actual_val, budget_val, projection_val) * 1.2
+    if max_val == 0:
+        max_val = 100
+
+    # Build arcs from 0° (left) to 180° (right) — top semicircle
+    theta_arc = [i * 180 / 100 for i in range(101)]
+
+    # Normalize each value to a fraction of max_val for the radial axis
+    r_actual = actual_val / max_val * 100
+    r_budget = budget_val / max_val * 100
+    r_projection = projection_val / max_val * 100
+
+    # Clamp arcs to actual value
+    theta_actual = [t for t in theta_arc if t <= (actual_val / max_val) * 180]
+    theta_budget = [t for t in theta_arc if t <= (budget_val / max_val) * 180]
+    theta_proj = [t for t in theta_arc if t <= (projection_val / max_val) * 180]
+
+    fig = go.Figure()
+
+    # Outer arc — Projection (amber)
+    fig.add_trace(go.Scatterpolar(
+        r=[r_projection] * len(theta_proj),
+        theta=theta_proj,
+        mode="lines",
+        line=dict(color="#FFB020", width=18, shape="spline"),
+        name=f"Projection: {fmt(projection_val, currency)}",
+        opacity=0.85,
+        hoverinfo="name",
+    ))
+    # Middle arc — Budget (blue)
+    fig.add_trace(go.Scatterpolar(
+        r=[r_budget] * len(theta_budget),
+        theta=theta_budget,
+        mode="lines",
+        line=dict(color="#3360F0", width=18, shape="spline"),
+        name=f"Budget: {fmt(budget_val, currency)}",
+        opacity=0.85,
+        hoverinfo="name",
+    ))
+    # Inner arc — Actuals (green)
+    fig.add_trace(go.Scatterpolar(
+        r=[r_actual] * len(theta_actual),
+        theta=theta_actual,
+        mode="lines",
+        line=dict(color="#00D68F", width=18, shape="spline"),
+        name=f"Actuals: {fmt(actual_val, currency)}",
+        opacity=0.95,
+        hoverinfo="name",
+    ))
+
+    # Value labels at the end of each arc
+    def _label_pos(frac):
+        theta_val = frac * 180
+        rad = theta_val * 3.14159 / 180
+        return rad, frac * 100
+
+    for val, max_v, color, label in [
+        (projection_val, max_val, "#FFB020", "Projection"),
+        (budget_val, max_val, "#3360F0", "Budget"),
+        (actual_val, max_val, "#00D68F", "Actuals"),
+    ]:
+        frac = val / max_v
+        rad = frac * 180 * 3.14159 / 180
+        r_pos = frac * 100
+        # Place text annotation on the polar chart
+        theta_deg = frac * 180
+        fig.add_annotation(
+            x=0.5, y=0.5,
+            xref="paper", yref="paper",
+            text="",
+            showarrow=False,
+        )
+
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=False,
+                range=[0, 100],
+            ),
+            angularaxis=dict(
+                visible=False,
+                range=[0, 180],
+            ),
+            bgcolor=CHART_BG,
+        ),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.1,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=12, color=TEXT_PRIMARY),
+            bgcolor="rgba(0,0,0,0)",
+        ),
+        title=dict(
+            text="Actuals vs Budget vs Projection",
+            font=dict(size=14, color="#8899AA", family="Inter"),
+        ),
+        height=320,
+        margin=dict(t=60, b=40, l=40, r=40),
+        paper_bgcolor=CHART_BG,
+        plot_bgcolor=CHART_BG,
+        font=dict(family="Inter, sans-serif", color="#8899AA"),
     )
     return fig
 
@@ -751,13 +908,23 @@ def render_metrics(currency):
 
 
 def render_gauge_row(currency):
-    """Render the three semicircle gauge meters."""
+    """Render concentric gauge (Actuals vs Budget vs Projection) + Renewal & Lapse meters."""
     kpis = compute_kpis(df_filtered, currency)
+
+    # Compute YTD actuals in thousands
+    actual_ytd = convert(kpis["total_premium"], currency) / 1000
+
+    # Sum budget & projection for months within the selected date range
+    current_month = datetime.now().month  # 1-indexed
+    budget_ytd = sum(st.session_state.budget_data[:current_month])
+    projection_ytd = sum(st.session_state.projection_data[:current_month])
 
     g1, g2, g3 = st.columns(3)
     with g1:
-        fig_active = make_gauge(kpis["active_pct"], "Active %")
-        st.plotly_chart(fig_active, use_container_width=True)
+        fig_concentric = make_concentric_actuals_budget_projection(
+            actual_ytd, budget_ytd, projection_ytd, currency
+        )
+        st.plotly_chart(fig_concentric, use_container_width=True)
     with g2:
         fig_renewal = make_gauge(kpis["renewal_pct"], "Renewal %")
         st.plotly_chart(fig_renewal, use_container_width=True)
@@ -802,7 +969,8 @@ if page == "🌍 Executive Summary":
             fig_pie.update_layout(
                 title="Policies Sold by Product",
                 height=420,
-                paper_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor=CHART_BG,
+                plot_bgcolor=CHART_BG,
                 font=dict(family="Inter, sans-serif", color="#8899AA"),
                 legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5,
                             font=dict(color="#8899AA")),
