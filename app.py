@@ -1018,9 +1018,9 @@ def _kpi_card(label, value, delta=None, positive=True):
     if delta is not None:
         delta_html = f'<div style="font-size:0.78rem;color:{color};margin-top:4px">{arrow} {delta}</div>'
     return f"""
-    <div style="background:{CARD_BG};border:1.5px solid {ACCENT};border-radius:12px;padding:20px 24px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
-      <div style="font-size:0.85rem;color:{CHART_TEXT};font-weight:600">{label}</div>
-      <div style="font-size:1.35rem;font-weight:700;color:{color};margin-top:8px">{value}</div>
+    <div style="background:{CARD_BG};border:1.5px solid {ACCENT};border-radius:12px;padding:16px 20px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+      <div style="font-size:0.92rem;color:{CHART_TEXT};font-weight:600">{label}</div>
+      <div style="font-size:1.35rem;font-weight:700;color:{color};margin-top:6px">{value}</div>
       {delta_html}
     </div>
     """
@@ -1028,9 +1028,9 @@ def _kpi_card(label, value, delta=None, positive=True):
 def _kpi_card_neutral(label, value):
     """HTML metric card with neutral color (no delta)."""
     return f"""
-    <div style="background:{CARD_BG};border:1.5px solid {ACCENT};border-radius:12px;padding:20px 24px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
-      <div style="font-size:0.85rem;color:{CHART_TEXT};font-weight:600">{label}</div>
-      <div style="font-size:1.35rem;font-weight:700;color:{CHART_TEXT};margin-top:8px">{value}</div>
+    <div style="background:{CARD_BG};border:1.5px solid {ACCENT};border-radius:12px;padding:16px 20px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+      <div style="font-size:0.92rem;color:{CHART_TEXT};font-weight:600">{label}</div>
+      <div style="font-size:1.35rem;font-weight:700;color:{CHART_TEXT};margin-top:6px">{value}</div>
     </div>
     """
 
@@ -1044,8 +1044,8 @@ def _styled_metric(label, value, delta=None, positive=True):
     if delta is not None:
         delta_html = f'<div style="font-size:0.78rem;color:{color};margin-top:4px">{arrow} {delta}</div>'
     return f"""
-    <div style="background:{CARD_BG};border:1.5px solid {ACCENT};border-radius:12px;padding:16px 20px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
-      <div style="font-size:0.78rem;color:{CHART_TEXT};font-weight:500">{label}</div>
+    <div style="background:{CARD_BG};border:1.5px solid {ACCENT};border-radius:12px;padding:14px 20px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+      <div style="font-size:0.88rem;color:{CHART_TEXT};font-weight:500">{label}</div>
       <div style="font-size:1.2rem;font-weight:700;color:{value_color};margin-top:6px">{value}</div>
       {delta_html}
     </div>
