@@ -1018,9 +1018,9 @@ def _kpi_card(label, value, delta=None, positive=True):
     if delta is not None:
         delta_html = f'<div style="font-size:0.78rem;color:{color};margin-top:4px">{arrow} {delta}</div>'
     return f"""
-    <div style="background:{CARD_BG};border:1px solid {CARD_BORDER};border-radius:10px;padding:16px 20px;text-align:center">
+    <div style="background:{CARD_BG};border:1.5px solid {ACCENT};border-radius:12px;padding:20px 24px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
       <div style="font-size:0.85rem;color:{CHART_TEXT};font-weight:600">{label}</div>
-      <div style="font-size:1.35rem;font-weight:700;color:{color};margin-top:6px">{value}</div>
+      <div style="font-size:1.35rem;font-weight:700;color:{color};margin-top:8px">{value}</div>
       {delta_html}
     </div>
     """
@@ -1028,9 +1028,9 @@ def _kpi_card(label, value, delta=None, positive=True):
 def _kpi_card_neutral(label, value):
     """HTML metric card with neutral color (no delta)."""
     return f"""
-    <div style="background:{CARD_BG};border:1px solid {CARD_BORDER};border-radius:10px;padding:16px 20px;text-align:center">
+    <div style="background:{CARD_BG};border:1.5px solid {ACCENT};border-radius:12px;padding:20px 24px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
       <div style="font-size:0.85rem;color:{CHART_TEXT};font-weight:600">{label}</div>
-      <div style="font-size:1.35rem;font-weight:700;color:{CHART_TEXT};margin-top:6px">{value}</div>
+      <div style="font-size:1.35rem;font-weight:700;color:{CHART_TEXT};margin-top:8px">{value}</div>
     </div>
     """
 
@@ -1044,7 +1044,7 @@ def _styled_metric(label, value, delta=None, positive=True):
     if delta is not None:
         delta_html = f'<div style="font-size:0.78rem;color:{color};margin-top:4px">{arrow} {delta}</div>'
     return f"""
-    <div style="background:{CARD_BG};border:1px solid {CARD_BORDER};border-radius:10px;padding:14px 18px;text-align:center">
+    <div style="background:{CARD_BG};border:1.5px solid {ACCENT};border-radius:12px;padding:16px 20px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
       <div style="font-size:0.78rem;color:{CHART_TEXT};font-weight:500">{label}</div>
       <div style="font-size:1.2rem;font-weight:700;color:{value_color};margin-top:6px">{value}</div>
       {delta_html}
@@ -1079,7 +1079,7 @@ def render_metrics(currency):
     d_renewal, pos_renewal = _pp_delta(kpis["renewal_pct"], kpis_ly["renewal_pct"])
 
     # Row 1: Delta metrics in first 2 columns (wider cards)
-    c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
+    c1, c2, c3, c4 = st.columns([1.3, 1.3, 1, 1])
     with c1:
         st.markdown(_kpi_card("📋 Policies Sold (YTD)", f"{kpis['n_policies']:,}", d_policies, pos_policies), unsafe_allow_html=True)
     with c2:
@@ -1090,7 +1090,7 @@ def render_metrics(currency):
         st.markdown(_kpi_card_neutral("📈 Avg Commission", fmt2(convert(kpis["avg_commission"], currency), currency)), unsafe_allow_html=True)
 
     # Row 2: Delta metrics in first 2 columns
-    c5, c6, c7, c8 = st.columns([2, 2, 1, 1])
+    c5, c6, c7, c8 = st.columns([1.3, 1.3, 1, 1])
     with c5:
         st.markdown(_kpi_card("💵 Total Commission", fmt(convert(kpis["total_commission"], currency), currency), d_commission, pos_commission), unsafe_allow_html=True)
     with c6:
