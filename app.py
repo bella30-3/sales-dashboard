@@ -54,7 +54,7 @@ THEMES = {
         "grid": "rgba(0,109,109,0.10)",
         "text_primary": "#FFFFFF",
         "text_secondary": "#C0E0E0",
-        "chart_text": "#333333",
+        "chart_text": "#1A1A1A",
         "gauge_green": "#006D6D",
         "gauge_amber": "#E6A800",
         "gauge_red": "#D94F4F",
@@ -219,9 +219,47 @@ div[data-testid="stDataFrame"] {{
 
 /* Selectbox / multiselect dropdowns */
 div[data-baseweb="select"] > div {{
-    background: {CHART_BG};
-    border-color: {CARD_BORDER};
-    color: {TEXT_PRIMARY};
+    background: {CARD_BG} !important;
+    border-color: {CARD_BORDER} !important;
+    color: {TEXT_PRIMARY} !important;
+    border-radius: 8px;
+}}
+div[data-baseweb="select"] > div:hover {{
+    border-color: {ACCENT} !important;
+}}
+div[data-baseweb="select"] input {{
+    color: {TEXT_PRIMARY} !important;
+}}
+div[data-baseweb="select"] [data-baseweb="tag"] {{
+    background-color: {ACCENT} !important;
+    color: #FFFFFF !important;
+    border-radius: 6px;
+}}
+div[data-baseweb="popover"] ul {{
+    background: {CARD_BG} !important;
+}}
+div[data-baseweb="popover"] li {{
+    color: {TEXT_PRIMARY} !important;
+}}
+div[data-baseweb="popover"] li:hover {{
+    background: rgba(255,255,255,0.08) !important;
+}}
+
+/* Date input */
+div[data-testid="stDateInput"] input {{
+    color: {TEXT_PRIMARY} !important;
+    background: {CARD_BG} !important;
+    border-radius: 8px;
+}}
+
+/* Number input */
+div[data-baseweb="input"] > div {{
+    background: {CARD_BG} !important;
+    border-color: {CARD_BORDER} !important;
+    border-radius: 8px;
+}}
+div[data-baseweb="input"] input {{
+    color: {TEXT_PRIMARY} !important;
 }}
 
 /* Date input */
@@ -778,7 +816,7 @@ def make_gauge(value, title, max_val=100, suffix="%"):
         number={"suffix": suffix, "font": {"size": 28, "color": CHART_TEXT, "family": "Inter"}},
         gauge={
             "axis": {"range": [0, max_val], "tickcolor": TEXT_SECONDARY,
-                     "tickfont": {"size": 11, "color": TEXT_SECONDARY}},
+                     "tickfont": {"size": 11, "color": CHART_TEXT}},
             "bar": {"color": bar_color, "thickness": 0.3},
             "bgcolor": CARD_BG,
             "borderwidth": 0,
@@ -789,7 +827,7 @@ def make_gauge(value, title, max_val=100, suffix="%"):
             ],
             "shape": "angular",
         },
-        title={"text": title, "font": {"size": 14, "color": "#8899AA", "family": "Inter"}},
+        title={"text": title, "font": {"size": 14, "color": CHART_TEXT, "family": "Inter"}},
     ))
     fig.update_layout(
         height=220,
@@ -867,9 +905,9 @@ def make_nested_donut(actuals_by_month, budget_by_month, proj_by_month, currency
     # Center label
     total_actuals = sum(act_vals)
     fig.add_annotation(
-        text=f"<b>{fmt(convert(total_actuals, currency), currency)}</b><br><span style='font-size:10px;color:{TEXT_SECONDARY}'>Actuals YTD</span>",
+        text=f"<b>{fmt(convert(total_actuals, currency), currency)}</b><br><span style='font-size:10px;color:{CHART_TEXT}'>Actuals YTD</span>",
         x=0.5, y=0.5, xref="paper", yref="paper",
-        showarrow=False, font=dict(size=16, color=TEXT_PRIMARY, family="Inter"),
+        showarrow=False, font=dict(size=16, color=CHART_TEXT, family="Inter"),
     )
 
     fig.update_layout(
@@ -966,6 +1004,23 @@ def _kpi_card_neutral(label, value):
     <div style="background:{CARD_BG};border:1px solid {CARD_BORDER};border-radius:10px;padding:16px 20px;text-align:center">
       <div style="font-size:0.85rem;color:{CHART_TEXT};font-weight:600">{label}</div>
       <div style="font-size:1.35rem;font-weight:700;color:{CHART_TEXT};margin-top:6px">{value}</div>
+    </div>
+    """
+
+
+def _styled_metric(label, value, delta=None, positive=True):
+    """Styled metric card matching executive dashboard — use on all pages."""
+    color = GAUGE_GREEN if positive else GAUGE_RED
+    value_color = color if delta is not None else CHART_TEXT
+    arrow = "▲" if positive else "▼"
+    delta_html = ""
+    if delta is not None:
+        delta_html = f'<div style="font-size:0.78rem;color:{color};margin-top:4px">{arrow} {delta}</div>'
+    return f"""
+    <div style="background:{CARD_BG};border:1px solid {CARD_BORDER};border-radius:10px;padding:14px 18px;text-align:center">
+      <div style="font-size:0.78rem;color:{CHART_TEXT};font-weight:500">{label}</div>
+      <div style="font-size:1.2rem;font-weight:700;color:{value_color};margin-top:6px">{value}</div>
+      {delta_html}
     </div>
     """
 
@@ -1082,7 +1137,7 @@ if page == "🌍 Executive Summary":
                 labels=pc["Product"], values=pc["Policies Sold"],
                 marker=dict(colors=pie_colors, line=dict(color=BG_COLOR, width=2)),
                 textinfo="label+percent",
-                textfont=dict(size=12, color=TEXT_PRIMARY),
+                textfont=dict(size=12, color=CHART_TEXT),
                 hole=0.35,
             ))
             fig_pie.update_layout(
@@ -1118,9 +1173,9 @@ if page == "🌍 Executive Summary":
 
     st.markdown("---")
 
-    # Row 2: Monthly revenue | Monthly by product | (empty or additional)
+    # Row 2: Monthly revenue | Monthly by product
     st.subheader("📈 Monthly Trends")
-    c4, c5, c6 = st.columns(3)
+    c4, c5 = st.columns(2)
 
     with c4:
         # Monthly revenue
@@ -1184,6 +1239,12 @@ if page == "🌍 Executive Summary":
         )
         st.plotly_chart(fig_mp, use_container_width=True)
 
+    st.markdown("---")
+
+    # Row 3: Policies Sold by Country | Actuals vs Budget vs Projection by Country
+    st.subheader("🌍 Policies & Targets by Country")
+    c6, c7 = st.columns(2)
+
     with c6:
         # Policies sold by country (horizontal bar)
         cc = df_filtered.groupby("Country")["Contract ID"].count().reset_index()
@@ -1202,6 +1263,63 @@ if page == "🌍 Executive Summary":
                              margin=dict(t=50, b=50, l=100))
         st.plotly_chart(fig_cc, use_container_width=True)
 
+    with c7:
+        # Actuals vs Budget vs Projection by Country
+        country_actuals = (df_filtered.drop_duplicates("Contract ID")
+                           .groupby("Country").agg(Actual=("Annual Premium", "sum")).reset_index())
+        country_actuals = country_actuals.sort_values("Actual", ascending=False)
+        country_actuals["Actual"] = country_actuals["Actual"].apply(lambda v: convert(v, cur))
+
+        rng = np.random.default_rng(42)
+        n_c = len(country_actuals)
+        budget_factors = rng.uniform(1.06, 1.14, n_c)
+        proj_factors = rng.uniform(1.15, 1.25, n_c)
+        # A couple of tight countries
+        tight_idx = rng.choice(n_c, size=min(1, n_c), replace=False)
+        budget_factors[tight_idx] = rng.uniform(0.98, 1.05, len(tight_idx))
+        proj_factors[tight_idx] = rng.uniform(1.00, 1.08, len(tight_idx))
+
+        country_actuals["Budget"] = (country_actuals["Actual"] * budget_factors).round(2)
+        country_actuals["Projection"] = (country_actuals["Actual"] * proj_factors).round(2)
+
+        fig_combo = go.Figure()
+        # Actuals as bars
+        fig_combo.add_trace(go.Bar(
+            x=country_actuals["Country"], y=country_actuals["Actual"], name="Actual",
+            marker_color=PAID_COLOR, marker_line=dict(width=0),
+            text=[fmt(v, cur) for v in country_actuals["Actual"]],
+            textposition="outside", textfont=dict(size=10, color=CHART_TEXT),
+        ))
+        # Budget as line
+        fig_combo.add_trace(go.Scatter(
+            x=country_actuals["Country"], y=country_actuals["Budget"], name="Budget",
+            mode="lines+markers",
+            line=dict(color=T["gauge_amber"], width=3, dash="dash"),
+            marker=dict(size=8, symbol="diamond", color=T["gauge_amber"],
+                        line=dict(width=1, color="white")),
+            text=[fmt(v, cur) for v in country_actuals["Budget"]],
+            hovertemplate="<b>%{x}</b><br>Budget: %{text}<extra></extra>",
+        ))
+        # Projection as line
+        fig_combo.add_trace(go.Scatter(
+            x=country_actuals["Country"], y=country_actuals["Projection"], name="Projection",
+            mode="lines+markers",
+            line=dict(color=TARGET_COLOR, width=3, dash="dot"),
+            marker=dict(size=8, symbol="triangle-up", color=TARGET_COLOR,
+                        line=dict(width=1, color="white")),
+            text=[fmt(v, cur) for v in country_actuals["Projection"]],
+            hovertemplate="<b>%{x}</b><br>Projection: %{text}<extra></extra>",
+        ))
+        _base_layout(fig_combo, 420)
+        fig_combo.update_layout(
+            title=f"Actuals vs Budget & Projection ({cur})",
+            barmode="group",
+            xaxis=dict(gridcolor=GRID_COLOR),
+            legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
+            margin=dict(t=60, b=60),
+        )
+        st.plotly_chart(fig_combo, use_container_width=True)
+
 # ─────────────────────────────────────────────
 # PAGE 2: REGION DRILL DOWN
 # ─────────────────────────────────────────────
@@ -1212,11 +1330,15 @@ elif page == "🗺️ Region Drill Down":
 
     st.subheader(f"Region: {region_sel}")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("📋 Policies Sold", f"{len(rdf):,}")
     rdf_unique = rdf.drop_duplicates("Contract ID")
-    c2.metric("💰 Total Premium", fmt(convert(true_premium_sum(rdf), cur), cur))
-    c3.metric("📊 Avg Premium", fmt(convert(rdf_unique["Annual Premium"].mean(), cur) if len(rdf_unique) > 0 else 0, cur))
-    c4.metric("💵 Total Commission", fmt(convert(true_premium_sum(rdf) * COMMISSION_RATE, cur), cur))
+    with c1:
+        st.markdown(_styled_metric("📋 Policies Sold", f"{len(rdf):,}"), unsafe_allow_html=True)
+    with c2:
+        st.markdown(_styled_metric("💰 Total Premium", fmt(convert(true_premium_sum(rdf), cur), cur)), unsafe_allow_html=True)
+    with c3:
+        st.markdown(_styled_metric("📊 Avg Premium", fmt(convert(rdf_unique["Annual Premium"].mean(), cur) if len(rdf_unique) > 0 else 0, cur)), unsafe_allow_html=True)
+    with c4:
+        st.markdown(_styled_metric("💵 Total Commission", fmt(convert(true_premium_sum(rdf) * COMMISSION_RATE, cur), cur)), unsafe_allow_html=True)
     st.markdown("---")
 
     # 3-column charts
@@ -1311,11 +1433,15 @@ elif page == "🏳️ Country Drill Down":
     sel_label = ", ".join(countries_sel) if len(countries_sel) <= 3 else f"{len(countries_sel)} countries"
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("📋 Policies Sold", f"{len(cdf):,}")
     cdf_unique = cdf.drop_duplicates("Contract ID")
-    c2.metric("💰 Total Premium", fmt(convert(true_premium_sum(cdf), cur), cur))
-    c3.metric("📊 Avg Premium", fmt(convert(cdf_unique["Annual Premium"].mean(), cur) if len(cdf_unique) > 0 else 0, cur))
-    c4.metric("💵 Total Commission", fmt(convert(true_premium_sum(cdf) * COMMISSION_RATE, cur), cur))
+    with c1:
+        st.markdown(_styled_metric("📋 Policies Sold", f"{len(cdf):,}"), unsafe_allow_html=True)
+    with c2:
+        st.markdown(_styled_metric("💰 Total Premium", fmt(convert(true_premium_sum(cdf), cur), cur)), unsafe_allow_html=True)
+    with c3:
+        st.markdown(_styled_metric("📊 Avg Premium", fmt(convert(cdf_unique["Annual Premium"].mean(), cur) if len(cdf_unique) > 0 else 0, cur)), unsafe_allow_html=True)
+    with c4:
+        st.markdown(_styled_metric("💵 Total Commission", fmt(convert(true_premium_sum(cdf) * COMMISSION_RATE, cur), cur)), unsafe_allow_html=True)
     st.markdown("---")
 
     c1, c2, c3 = st.columns(3)
@@ -1394,11 +1520,15 @@ elif page == "📦 Product Drill Down":
     else:
         st.subheader(f"{PRODUCTS[prod_sel]['label']}")
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("📋 Policies Sold", f"{len(pdf):,}")
         pdf_unique = pdf.drop_duplicates("Contract ID")
-        c2.metric("💰 Total Premium", fmt(convert(true_premium_sum(pdf), cur), cur))
-        c3.metric("📊 Avg Premium", fmt(convert(pdf_unique["Annual Premium"].mean(), cur), cur))
-        c4.metric("💵 Total Commission", fmt(convert(true_premium_sum(pdf) * COMMISSION_RATE, cur), cur))
+        with c1:
+            st.markdown(_styled_metric("📋 Policies Sold", f"{len(pdf):,}"), unsafe_allow_html=True)
+        with c2:
+            st.markdown(_styled_metric("💰 Total Premium", fmt(convert(true_premium_sum(pdf), cur), cur)), unsafe_allow_html=True)
+        with c3:
+            st.markdown(_styled_metric("📊 Avg Premium", fmt(convert(pdf_unique["Annual Premium"].mean(), cur), cur)), unsafe_allow_html=True)
+        with c4:
+            st.markdown(_styled_metric("💵 Total Commission", fmt(convert(true_premium_sum(pdf) * COMMISSION_RATE, cur), cur)), unsafe_allow_html=True)
         st.markdown("---")
 
         c1, c2, c3 = st.columns(3)
@@ -1501,9 +1631,12 @@ elif page == "🚗 EV Warranty Analysis":
             hdf = ev[ev["Country"].isin(h_country)]
 
             col1, col2, col3 = st.columns(3)
-            col1.metric("Policies", f"{len(hdf):,}")
-            col2.metric("Healthy", f"{len(hdf[hdf['Health State'] == 'Healthy']):,}")
-            col3.metric("Poor", f"{len(hdf[hdf['Health State'] == 'Poor']):,}")
+            with col1:
+                st.markdown(_styled_metric("📋 Policies", f"{len(hdf):,}"), unsafe_allow_html=True)
+            with col2:
+                st.markdown(_styled_metric("✅ Healthy", f"{len(hdf[hdf['Health State'] == 'Healthy']):,}"), unsafe_allow_html=True)
+            with col3:
+                st.markdown(_styled_metric("⚠️ Poor", f"{len(hdf[hdf['Health State'] == 'Poor']):,}"), unsafe_allow_html=True)
             st.markdown("---")
 
             c1, c2, c3 = st.columns(3)
@@ -1532,9 +1665,12 @@ elif page == "🚗 EV Warranty Analysis":
                                         labels=["1-3 yrs", "4-5 yrs", "6-10 yrs", "11-15 yrs"])
 
             c1, c2, c3 = st.columns(3)
-            c1.metric("Policies", f"{len(adf):,}")
-            c2.metric("Avg Age", f"{adf['Vehicle Age'].mean():.1f} yrs")
-            c3.metric("Avg KM", f"{adf['KM Driven'].mean():,.0f}")
+            with c1:
+                st.markdown(_styled_metric("📋 Policies", f"{len(adf):,}"), unsafe_allow_html=True)
+            with c2:
+                st.markdown(_styled_metric("📅 Avg Age", f"{adf['Vehicle Age'].mean():.1f} yrs"), unsafe_allow_html=True)
+            with c3:
+                st.markdown(_styled_metric("🛣️ Avg KM", f"{adf['KM Driven'].mean():,.0f}"), unsafe_allow_html=True)
             st.markdown("---")
 
             col1, col2, col3 = st.columns(3)
@@ -1563,9 +1699,12 @@ elif page == "🚗 EV Warranty Analysis":
                                         labels=["0-25K", "25-50K", "50-100K", "100-150K", "150K+"])
 
             c1, c2, c3 = st.columns(3)
-            c1.metric("Policies", f"{len(kdf):,}")
-            c2.metric("Avg KM", f"{kdf['KM Driven'].mean():,.0f}")
-            c3.metric("Avg Age", f"{kdf['Vehicle Age'].mean():.1f} yrs")
+            with c1:
+                st.markdown(_styled_metric("📋 Policies", f"{len(kdf):,}"), unsafe_allow_html=True)
+            with c2:
+                st.markdown(_styled_metric("🛣️ Avg KM", f"{kdf['KM Driven'].mean():,.0f}"), unsafe_allow_html=True)
+            with c3:
+                st.markdown(_styled_metric("📅 Avg Age", f"{kdf['Vehicle Age'].mean():.1f} yrs"), unsafe_allow_html=True)
             st.markdown("---")
 
             col1, col2, col3 = st.columns(3)
@@ -1647,9 +1786,12 @@ elif page == "🚗 EV Warranty Analysis":
                 st.rerun()
 
             c1, c2, c3 = st.columns(3)
-            c1.metric("Policies", f"{len(mdf):,}")
-            c2.metric("Brands", f"{mdf['Brand'].nunique()}")
-            c3.metric("Models", f"{mdf['Model'].nunique()}")
+            with c1:
+                st.markdown(_styled_metric("📋 Policies", f"{len(mdf):,}"), unsafe_allow_html=True)
+            with c2:
+                st.markdown(_styled_metric("🏭 Brands", f"{mdf['Brand'].nunique()}"), unsafe_allow_html=True)
+            with c3:
+                st.markdown(_styled_metric("🚗 Models", f"{mdf['Model'].nunique()}"), unsafe_allow_html=True)
             st.markdown("---")
 
             col1, col2, col3 = st.columns(3)
@@ -1731,12 +1873,16 @@ elif page == "🛡️ IPI Policy Analysis":
         with ipi_tab1:
             st.subheader("IPI Overview")
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Policies", f"{len(ipi):,}")
             ipi_unique = ipi.drop_duplicates("Contract ID")
-            c2.metric("Total Premium", fmt(convert(true_premium_sum(ipi), cur), cur))
-            c3.metric("Avg Premium", fmt(convert(ipi_unique["Annual Premium"].mean(), cur), cur))
-            c4.metric("Corporate %",
-                       f"{len(ipi[ipi['Type'] == 'Corporate']) / len(ipi) * 100:.1f}%" if len(ipi) > 0 else "—")
+            with c1:
+                st.markdown(_styled_metric("📋 Policies", f"{len(ipi):,}"), unsafe_allow_html=True)
+            with c2:
+                st.markdown(_styled_metric("💰 Total Premium", fmt(convert(true_premium_sum(ipi), cur), cur)), unsafe_allow_html=True)
+            with c3:
+                st.markdown(_styled_metric("📊 Avg Premium", fmt(convert(ipi_unique["Annual Premium"].mean(), cur), cur)), unsafe_allow_html=True)
+            with c4:
+                corp_pct = f"{len(ipi[ipi['Type'] == 'Corporate']) / len(ipi) * 100:.1f}%" if len(ipi) > 0 else "—"
+                st.markdown(_styled_metric("🏢 Corporate %", corp_pct), unsafe_allow_html=True)
             st.markdown("---")
 
             col1, col2, col3 = st.columns(3)
