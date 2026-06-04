@@ -75,6 +75,11 @@ THEMES = {
 # Commission rate (15% of annual premium)
 COMMISSION_RATE = 0.15
 
+
+def true_premium_sum(df):
+    """Sum annual premium once per contract — avoids 12x inflation on monthly billing rows."""
+    return df.groupby("Contract ID")["Annual Premium"].first().sum()
+
 # ─────────────────────────────────────────────
 # THEME SELECTION (before CSS)
 # ─────────────────────────────────────────────
@@ -617,7 +622,7 @@ page = st.sidebar.radio("Navigate", PAGES, index=nav_idx)
 
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Policies Sold: **{len(df_filtered):,}**")
-st.sidebar.caption(f"Premium: **{fmt(convert(df_filtered['Annual Premium'].sum(), cur), cur)}**")
+st.sidebar.caption(f"Premium: **{fmt(convert(true_premium_sum(df_filtered), cur), cur)}**")
 
 # ─────────────────────────────────────────────
 # CHART HELPERS
@@ -698,13 +703,18 @@ def bar_chart(data, x, y, title, color=None, barmode="group", height=420, color_
 
 
 def make_summary(df_in, group_col):
-    return df_in.groupby(group_col).agg(
+    """Aggregate by group_col. Premium is deduplicated per contract first."""
+    base = df_in.groupby(group_col).agg(
         Contracts=("Contract ID", "count"),
-        Total_Premium=("Annual Premium", "sum"),
         Paid=("Paid", "sum"),
         Outstanding=("Outstanding", "sum"),
         Target=("Target", "sum"),
     ).reset_index()
+    premium = (df_in.drop_duplicates("Contract ID")
+               .groupby(group_col)["Annual Premium"].sum()
+               .reset_index())
+    premium.rename(columns={"Annual Premium": "Total_Premium"}, inplace=True)
+    return base.merge(premium, on=group_col, how="left").fillna({"Total_Premium": 0})
 
 
 def convert_cols(agg, cols, currency):
@@ -909,17 +919,19 @@ def compute_kpis(df_curr, currency):
         lapsed_mask = expired_mask
     lapse_pct = (lapsed_mask.sum() / n_policies * 100) if n_policies > 0 else 0
 
-    # Average premium in USD
-    avg_premium = df_curr["Annual Premium"].mean() if n_policies > 0 else 0
+    # Deduplicated per-contract premiums for accurate totals
+    unique_contracts = df_curr.drop_duplicates("Contract ID")
+    n_unique = len(unique_contracts)
 
-    # Commission
-    df_curr_copy = df_curr.copy()
-    df_curr_copy["Commission"] = df_curr_copy["Annual Premium"] * COMMISSION_RATE
-    total_commission = df_curr_copy["Commission"].sum()
-    avg_commission = df_curr_copy["Commission"].mean() if n_policies > 0 else 0
+    # Average premium in USD (per contract, not per installment row)
+    avg_premium = unique_contracts["Annual Premium"].mean() if n_unique > 0 else 0
 
-    # Total premium
-    total_premium = df_curr["Annual Premium"].sum()
+    # Commission (per contract)
+    total_commission = unique_contracts["Annual Premium"].sum() * COMMISSION_RATE
+    avg_commission = (unique_contracts["Annual Premium"] * COMMISSION_RATE).mean() if n_unique > 0 else 0
+
+    # Total premium (per contract)
+    total_premium = unique_contracts["Annual Premium"].sum()
 
     return {
         "n_policies": n_policies,
@@ -1012,7 +1024,8 @@ def render_gauge_row(currency):
     kpis = compute_kpis(df_filtered, currency)
 
     # Monthly actuals from filtered data
-    monthly_actuals = df_filtered.groupby("Month")["Annual Premium"].sum().to_dict()
+    monthly_actuals = (df_filtered.drop_duplicates("Contract ID")
+                        .groupby("Month")["Annual Premium"].sum().to_dict())
     current_month = datetime.now().month
 
     # Generate budget (~10% above) and projection (~20% above) with some tight months
@@ -1087,8 +1100,9 @@ if page == "🌍 Executive Summary":
             st.plotly_chart(empty_state("Policies Sold by Product"), use_container_width=True)
 
     with c2:
-        # Revenue by Product
-        rev = df_filtered.groupby("Product Label")["Annual Premium"].sum().reset_index()
+        # Revenue by Product (deduplicated per contract)
+        rev = (df_filtered.drop_duplicates("Contract ID")
+               .groupby("Product Label")["Annual Premium"].sum().reset_index())
         rev.columns = ["Product", "Premium"]
         rev["Premium"] = rev["Premium"].apply(lambda v: convert(v, cur))
         fig_rev = bar_chart(rev, "Product", "Premium", f"Revenue by Product ({cur})", color_map=PRODUCT_COLORS)
@@ -1111,8 +1125,13 @@ if page == "🌍 Executive Summary":
     with c4:
         # Monthly revenue
         ma = df_filtered.groupby("YearMonth").agg(
-            Premium=("Annual Premium", "sum"), Contracts=("Contract ID", "count"),
-        ).reset_index().sort_values("YearMonth")
+            Contracts=("Contract ID", "count"),
+        ).reset_index()
+        ma_premium = (df_filtered.drop_duplicates("Contract ID")
+                      .groupby("YearMonth")["Annual Premium"].sum()
+                      .reset_index().rename(columns={"Annual Premium": "Premium"}))
+        ma = ma.merge(ma_premium, on="YearMonth", how="left").fillna({"Premium": 0})
+        ma = ma.sort_values("YearMonth")
         ma["Premium"] = ma["Premium"].apply(lambda v: convert(v, cur))
         ma["Month"] = ma["YearMonth"].apply(lambda ym: datetime.strptime(ym, "%Y-%m").strftime("%b %Y"))
 
@@ -1131,8 +1150,13 @@ if page == "🌍 Executive Summary":
     with c5:
         # Monthly revenue by product (line)
         mp = df_filtered.groupby(["YearMonth", "Product Label"]).agg(
-            Premium=("Annual Premium", "sum"), Contracts=("Contract ID", "count"),
-        ).reset_index().sort_values("YearMonth")
+            Contracts=("Contract ID", "count"),
+        ).reset_index()
+        mp_premium = (df_filtered.drop_duplicates("Contract ID")
+                      .groupby(["YearMonth", "Product Label"])["Annual Premium"].sum()
+                      .reset_index().rename(columns={"Annual Premium": "Premium"}))
+        mp = mp.merge(mp_premium, on=["YearMonth", "Product Label"], how="left").fillna({"Premium": 0})
+        mp = mp.sort_values("YearMonth")
         mp["Premium"] = mp["Premium"].apply(lambda v: convert(v, cur))
         mp["Month"] = mp["YearMonth"].apply(lambda ym: datetime.strptime(ym, "%Y-%m").strftime("%b %Y"))
         mp.rename(columns={"Product Label": "Product"}, inplace=True)
@@ -1189,9 +1213,10 @@ elif page == "🗺️ Region Drill Down":
     st.subheader(f"Region: {region_sel}")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("📋 Policies Sold", f"{len(rdf):,}")
-    c2.metric("💰 Total Premium", fmt(convert(rdf["Annual Premium"].sum(), cur), cur))
-    c3.metric("📊 Avg Premium", fmt(convert(rdf["Annual Premium"].mean(), cur) if len(rdf) > 0 else 0, cur))
-    c4.metric("💵 Total Commission", fmt(convert(rdf["Annual Premium"].sum() * COMMISSION_RATE, cur), cur))
+    rdf_unique = rdf.drop_duplicates("Contract ID")
+    c2.metric("💰 Total Premium", fmt(convert(true_premium_sum(rdf), cur), cur))
+    c3.metric("📊 Avg Premium", fmt(convert(rdf_unique["Annual Premium"].mean(), cur) if len(rdf_unique) > 0 else 0, cur))
+    c4.metric("💵 Total Commission", fmt(convert(true_premium_sum(rdf) * COMMISSION_RATE, cur), cur))
     st.markdown("---")
 
     # 3-column charts
@@ -1235,9 +1260,10 @@ elif page == "🗺️ Region Drill Down":
         st.plotly_chart(fig_ccp, use_container_width=True)
 
     with c5:
-        cl = rdf.groupby(["Country", "Client"]).agg(
-            Revenue=("Annual Premium", "sum"),
-        ).reset_index()
+        cl = (rdf.drop_duplicates("Contract ID")
+              .groupby(["Country", "Client"])
+              .agg(Revenue=("Annual Premium", "sum"))
+              .reset_index())
         cl["Revenue"] = cl["Revenue"].apply(lambda v: convert(v, cur))
         cl = cl.sort_values("Revenue", ascending=False).head(10)
         fig_tc = go.Figure()
@@ -1255,10 +1281,11 @@ elif page == "🗺️ Region Drill Down":
         st.plotly_chart(fig_tc, use_container_width=True)
 
     with c6:
-        # Commission by country
-        rdf_c = rdf.copy()
-        rdf_c["Commission"] = rdf_c["Annual Premium"] * COMMISSION_RATE
-        comm = rdf_c.groupby("Country")["Commission"].sum().reset_index()
+        # Commission by country (deduplicated per contract)
+        comm = (rdf.drop_duplicates("Contract ID")
+                .assign(Commission=lambda x: x["Annual Premium"] * COMMISSION_RATE)
+                .groupby("Country")["Commission"].sum()
+                .reset_index())
         comm["Commission"] = comm["Commission"].apply(lambda v: convert(v, cur))
         fig_comm = bar_chart(comm, "Country", "Commission", f"Commission by Country ({cur})",
                              color_map=COUNTRY_COLORS)
@@ -1285,9 +1312,10 @@ elif page == "🏳️ Country Drill Down":
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("📋 Policies Sold", f"{len(cdf):,}")
-    c2.metric("💰 Total Premium", fmt(convert(cdf["Annual Premium"].sum(), cur), cur))
-    c3.metric("📊 Avg Premium", fmt(convert(cdf["Annual Premium"].mean(), cur) if len(cdf) > 0 else 0, cur))
-    c4.metric("💵 Total Commission", fmt(convert(cdf["Annual Premium"].sum() * COMMISSION_RATE, cur), cur))
+    cdf_unique = cdf.drop_duplicates("Contract ID")
+    c2.metric("💰 Total Premium", fmt(convert(true_premium_sum(cdf), cur), cur))
+    c3.metric("📊 Avg Premium", fmt(convert(cdf_unique["Annual Premium"].mean(), cur) if len(cdf_unique) > 0 else 0, cur))
+    c4.metric("💵 Total Commission", fmt(convert(true_premium_sum(cdf) * COMMISSION_RATE, cur), cur))
     st.markdown("---")
 
     c1, c2, c3 = st.columns(3)
@@ -1333,9 +1361,10 @@ elif page == "🏳️ Country Drill Down":
         st.plotly_chart(fig_cr, use_container_width=True)
 
     with c3:
-        cl = cdf.groupby(["Country", "Client"]).agg(
-            Revenue=("Annual Premium", "sum"),
-        ).reset_index()
+        cl = (cdf.drop_duplicates("Contract ID")
+              .groupby(["Country", "Client"])
+              .agg(Revenue=("Annual Premium", "sum"))
+              .reset_index())
         cl["Revenue"] = cl["Revenue"].apply(lambda v: convert(v, cur))
         cl = cl.sort_values("Revenue", ascending=False).head(15)
         fig_tc = go.Figure()
@@ -1366,17 +1395,22 @@ elif page == "📦 Product Drill Down":
         st.subheader(f"{PRODUCTS[prod_sel]['label']}")
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("📋 Policies Sold", f"{len(pdf):,}")
-        c2.metric("💰 Total Premium", fmt(convert(pdf["Annual Premium"].sum(), cur), cur))
-        c3.metric("📊 Avg Premium", fmt(convert(pdf["Annual Premium"].mean(), cur), cur))
-        c4.metric("💵 Total Commission", fmt(convert(pdf["Annual Premium"].sum() * COMMISSION_RATE, cur), cur))
+        pdf_unique = pdf.drop_duplicates("Contract ID")
+        c2.metric("💰 Total Premium", fmt(convert(true_premium_sum(pdf), cur), cur))
+        c3.metric("📊 Avg Premium", fmt(convert(pdf_unique["Annual Premium"].mean(), cur), cur))
+        c4.metric("💵 Total Commission", fmt(convert(true_premium_sum(pdf) * COMMISSION_RATE, cur), cur))
         st.markdown("---")
 
         c1, c2, c3 = st.columns(3)
 
         with c1:
             cp = pdf.groupby("Country").agg(
-                Revenue=("Annual Premium", "sum"), Contracts=("Contract ID", "count"),
+                Contracts=("Contract ID", "count"),
             ).reset_index()
+            cp_rev = (pdf.drop_duplicates("Contract ID")
+                      .groupby("Country")["Annual Premium"].sum()
+                      .reset_index().rename(columns={"Annual Premium": "Revenue"}))
+            cp = cp.merge(cp_rev, on="Country", how="left").fillna({"Revenue": 0})
             cp["Revenue"] = cp["Revenue"].apply(lambda v: convert(v, cur))
             bar_colors = [COUNTRY_COLORS.get(c, COUNTRY_DEFAULT_COLOR) for c in cp["Country"]]
             fig_prc = go.Figure(go.Bar(
@@ -1425,8 +1459,12 @@ elif page == "📦 Product Drill Down":
 
         with c3:
             cl = pdf.groupby(["Country", "Client"]).agg(
-                Revenue=("Annual Premium", "sum"), Contracts=("Contract ID", "count"),
+                Contracts=("Contract ID", "count"),
             ).reset_index()
+            cl_rev = (pdf.drop_duplicates("Contract ID")
+                      .groupby(["Country", "Client"])["Annual Premium"].sum()
+                      .reset_index().rename(columns={"Annual Premium": "Revenue"}))
+            cl = cl.merge(cl_rev, on=["Country", "Client"], how="left").fillna({"Revenue": 0})
             cl["Revenue"] = cl["Revenue"].apply(lambda v: convert(v, cur))
             cl = cl.sort_values("Revenue", ascending=False).head(10)
             fig_ptc = go.Figure()
@@ -1694,8 +1732,9 @@ elif page == "🛡️ IPI Policy Analysis":
             st.subheader("IPI Overview")
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Policies", f"{len(ipi):,}")
-            c2.metric("Total Premium", fmt(convert(ipi["Annual Premium"].sum(), cur), cur))
-            c3.metric("Avg Premium", fmt(convert(ipi["Annual Premium"].mean(), cur), cur))
+            ipi_unique = ipi.drop_duplicates("Contract ID")
+            c2.metric("Total Premium", fmt(convert(true_premium_sum(ipi), cur), cur))
+            c3.metric("Avg Premium", fmt(convert(ipi_unique["Annual Premium"].mean(), cur), cur))
             c4.metric("Corporate %",
                        f"{len(ipi[ipi['Type'] == 'Corporate']) / len(ipi) * 100:.1f}%" if len(ipi) > 0 else "—")
             st.markdown("---")
@@ -1720,9 +1759,13 @@ elif page == "🛡️ IPI Policy Analysis":
             st.subheader("IPI by Insurer")
             ins = ipi.groupby("Insurer").agg(
                 Policies=("Contract ID", "count"),
-                Total_Premium=("Annual Premium", "sum"),
-                Avg_Premium=("Annual Premium", "mean"),
             ).reset_index()
+            ins_prem = (ipi.drop_duplicates("Contract ID")
+                        .groupby("Insurer")
+                        .agg(Total_Premium=("Annual Premium", "sum"),
+                             Avg_Premium=("Annual Premium", "mean"))
+                        .reset_index())
+            ins = ins.merge(ins_prem, on="Insurer", how="left").fillna({"Total_Premium": 0, "Avg_Premium": 0})
             ins["Total_Premium"] = ins["Total_Premium"].apply(lambda v: convert(v, cur))
             ins["Avg_Premium"] = ins["Avg_Premium"].apply(lambda v: convert(v, cur))
 
@@ -1743,10 +1786,14 @@ elif page == "🛡️ IPI Policy Analysis":
             st.subheader("IPI by Plan")
             plan = ipi.groupby("Plan").agg(
                 Policies=("Contract ID", "count"),
-                Total_Premium=("Annual Premium", "sum"),
-                Avg_Premium=("Annual Premium", "mean"),
                 Lives=("Lives Insured", "sum"),
             ).reset_index()
+            plan_prem = (ipi.drop_duplicates("Contract ID")
+                         .groupby("Plan")
+                         .agg(Total_Premium=("Annual Premium", "sum"),
+                              Avg_Premium=("Annual Premium", "mean"))
+                         .reset_index())
+            plan = plan.merge(plan_prem, on="Plan", how="left").fillna({"Total_Premium": 0, "Avg_Premium": 0})
             plan["Total_Premium"] = plan["Total_Premium"].apply(lambda v: convert(v, cur))
             plan["Avg_Premium"] = plan["Avg_Premium"].apply(lambda v: convert(v, cur))
 
