@@ -213,8 +213,35 @@ p, li, span, label, .stMarkdown {{
 
 /* Dataframes */
 div[data-testid="stDataFrame"] {{
-    border-radius: 10px;
+    border-radius: 12px;
     overflow: hidden;
+    border: 1px solid {CARD_BORDER} !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 1px 4px rgba(0, 0, 0, 0.2);
+}}
+div[data-testid="stDataFrame"] table {{
+    border-collapse: separate;
+    border-spacing: 0;
+}}
+div[data-testid="stDataFrame"] th {{
+    background: {ACCENT} !important;
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+    padding: 10px 16px !important;
+    border-bottom: 2px solid {CARD_BORDER} !important;
+    font-size: 0.82rem !important;
+    letter-spacing: 0.02em;
+}}
+div[data-testid="stDataFrame"] td {{
+    padding: 8px 16px !important;
+    border-bottom: 1px solid {CARD_BORDER} !important;
+    font-size: 0.82rem !important;
+    color: {TEXT_PRIMARY} !important;
+}}
+div[data-testid="stDataFrame"] tr:hover td {{
+    background: rgba(255, 255, 255, 0.04) !important;
+}}
+div[data-testid="stDataFrame"] [role="gridcell"] {{
+    padding: 8px 16px !important;
 }}
 
 /* Selectbox / multiselect dropdowns */
@@ -1857,7 +1884,11 @@ elif page == "🚗 EV Warranty Analysis":
                 ).reset_index()
                 stats["Avg_Premium"] = stats["Avg_Premium"].apply(lambda v: convert(v, cur))
                 stats = stats.sort_values("Policies", ascending=False)
-                st.dataframe(stats, use_container_width=True, height=300)
+                st.dataframe(stats, use_container_width=True, height=300,
+                             column_config={
+                                 "Policies": st.column_config.NumberColumn(width="small"),
+                                 "Avg_Premium": st.column_config.NumberColumn(width="medium"),
+                             })
 
 # ─────────────────────────────────────────────
 # PAGE 6: IPI POLICY ANALYSIS
@@ -1968,7 +1999,22 @@ elif page == "📋 Raw Data":
     display_df["Commission"] = (display_df["Annual Premium"] * COMMISSION_RATE).round(2)
     display_df["Active"] = pd.to_datetime(display_df["End Date"]) >= pd.Timestamp.now()
 
-    st.dataframe(display_df, use_container_width=True, height=600)
+    st.dataframe(display_df, use_container_width=True, height=600,
+                 column_config={
+                     "Contract ID": st.column_config.TextColumn(width="small"),
+                     "Type": st.column_config.TextColumn(width="small"),
+                     "Client": st.column_config.TextColumn(width="medium"),
+                     "Product": st.column_config.TextColumn(width="small"),
+                     "Plan": st.column_config.TextColumn(width="small"),
+                     "Region": st.column_config.TextColumn(width="small"),
+                     "Country": st.column_config.TextColumn(width="small"),
+                     "Annual Premium": st.column_config.NumberColumn(width="small"),
+                     "Paid": st.column_config.NumberColumn(width="small"),
+                     "Outstanding": st.column_config.NumberColumn(width="small"),
+                     "Target": st.column_config.NumberColumn(width="small"),
+                     "Commission": st.column_config.NumberColumn(width="small"),
+                     "Active": st.column_config.CheckboxColumn(width="small"),
+                 })
 
     # Download
     csv = display_df.to_csv(index=False)
